@@ -19,13 +19,11 @@ function App() {
   const [hours, setHours] = useState(2);
   const [hasPets, setHasPets] = useState(false);
   const [ecoSupplies, setEcoSupplies] = useState(false);
-  const [estimatedPrice, setEstimatedPrice] = useState(0);
   const [bookingStep, setBookingStep] = useState('config'); // 'config' | 'searching' | 'matched'
   const [countdown, setCountdown] = useState(5);
   
   // Hero State
   const [heroOnline, setHeroOnline] = useState(true);
-  const [heroJobQueue, setHeroJobQueue] = useState(true);
   const [heroJobStep, setHeroJobStep] = useState('pending'); // 'pending' | 'accepted' | 'checklist' | 'done'
   const [checklist, setChecklist] = useState({
     prePhotos: false,
@@ -34,27 +32,23 @@ function App() {
   });
   const [heroEarnings, setHeroEarnings] = useState(4850); // in Rupees
   
-  // Recalculate price whenever inputs change
-  useEffect(() => {
-    const rates = pricingConfig[category];
-    let total = rates.base;
-    
-    if (category === 'cleaning') {
-      total = rates.base + (bedrooms - 1) * rates.hourly * rates.roomMultiplier;
-      if (hasPets) total += rates.petSurcharge;
-      if (ecoSupplies) total += 200;
-    } else {
-      total = rates.base + (hours - 1) * rates.hourly;
-      if (ecoSupplies) total += 150; // extra materials
-    }
-    setEstimatedPrice(Math.round(total));
-  }, [category, bedrooms, hours, hasPets, ecoSupplies]);
+  // Calculate price dynamically during rendering to avoid state-sync issues
+  const rates = pricingConfig[category];
+  let estimatedPrice = rates.base;
+  if (category === 'cleaning') {
+    estimatedPrice = rates.base + (bedrooms - 1) * rates.hourly * rates.roomMultiplier;
+    if (hasPets) estimatedPrice += rates.petSurcharge;
+    if (ecoSupplies) estimatedPrice += 200;
+  } else {
+    estimatedPrice = rates.base + (hours - 1) * rates.hourly;
+    if (ecoSupplies) estimatedPrice += 150; // extra materials
+  }
+  estimatedPrice = Math.round(estimatedPrice);
 
   // Simulate dispatcher searching for a Hero
   useEffect(() => {
     let timer;
     if (bookingStep === 'searching') {
-      setCountdown(5);
       timer = setInterval(() => {
         setCountdown((prev) => {
           if (prev <= 1) {
@@ -217,7 +211,7 @@ function App() {
 
                   <button 
                     className="book-now-btn"
-                    onClick={() => setBookingStep('searching')}
+                    onClick={() => { setBookingStep('searching'); setCountdown(5); }}
                   >
                     Confirm & Hold Escrow (₹{estimatedPrice})
                   </button>
