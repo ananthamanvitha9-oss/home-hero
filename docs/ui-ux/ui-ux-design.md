@@ -1,6 +1,6 @@
 # HomeHero - UI/UX Design System & Mobile App Flow Specification
 
-**Document Version:** 2.0 (Senior UX Designer Complete Specification)  
+**Document Version:** 3.0 (Senior UX Designer Blueprint Edition)  
 **Author:** Senior UX Designer  
 **Date:** June 17, 2026  
 **Status:** Approved for Frontend Scaffolding  
@@ -55,112 +55,272 @@ graph TD
 
 ### Screen 1: Splash Screen
 *   **Visual Layout:** Centered glowing brand logo of HomeHero (`🦸‍♂️`) set against a deep Royal Indigo background with a subtle radar-pulse animation.
-*   **Elements:** 
-    *   Brand Icon (glowing vector).
-    *   Typography: "HomeHero" in bold Outfit font.
-    *   Dynamic load indicator: "Hyperlocal Home Care, Verified instantly."
+*   **Wireframe Blueprint:**
+    ```
+    +------------------------------------------+
+    |                                          |
+    |                                          |
+    |                                          |
+    |                  🦸‍♂️                      |
+    |               HomeHero                   |
+    |                                          |
+    |                                          |
+    |    "Hyperlocal Home Care, Verified."     |
+    |                                          |
+    +------------------------------------------+
+    ```
 *   **UX Recommendation:** Maintain launch duration under 1.5 seconds, pre-fetching regional configurations in the background.
 
 ---
 
 ### Screen 2: Login Screen
 *   **Visual Layout:** Sleek top-aligned brand logo with an interactive phone number input card.
-*   **Elements:**
-    *   Input Field: Mobile phone number field with country code prefix selector (`+91`).
-    *   Secondary Action: Social logins (Google/Apple) in glassmorphic pill buttons.
-    *   CTA: Large "Request OTP" button using a linear primary-to-accent gradient.
+*   **Wireframe Blueprint:**
+    ```
+    +------------------------------------------+
+    |               🦸‍♂️ HomeHero                |
+    |  Access your verified dashboard          |
+    |                                          |
+    |  +------------------------------------+  |
+    |  | Mobile Number                      |  |
+    |  | [+91] [ Enter phone number       ] |  |
+    |  +------------------------------------+  |
+    |                                          |
+    |  [ Request OTP Verification             ] |
+    |                                          |
+    |  - OR -                                  |
+    |  [ G Continue with Google               ] |
+    |  [ A Continue with Apple                ] |
+    +------------------------------------------+
+    ```
 *   **UX Recommendation:** Auto-focus the mobile input field on mount and display the numeric keyboard by default.
 
 ---
 
 ### Screen 3: OTP Verification Screen
-*   **Visual Layout:** Clean layout showing the verification subtitle.
-*   **Elements:**
-    *   Text: "Code sent to +91 98XXX-XX210" with an Edit button to return.
-    *   Input Fields: 6 individual, high-contrast numeric boxes with automatic active state focus changes.
-    *   Countdown Timer: "Resend Code in 45s".
+*   **Visual Layout:** Clean layout showing the verification inputs digits.
+*   **Wireframe Blueprint:**
+    ```
+    +------------------------------------------+
+    |              ← Back to Login             |
+    |  Verify Mobile                           |
+    |  Code sent to +91 98XXX-XX210            |
+    |                                          |
+    |    [ 4 ]  [ 8 ]  [ 9 ]  [ 2 ]  [ _ ]  [ _ ]|
+    |                                          |
+    |  Resend Code in 45s                      |
+    |                                          |
+    |  [ Verify & Sign In                     ] |
+    +------------------------------------------+
+    ```
 *   **UX Recommendation:** Integrate automatic SMS reader API to fetch and paste the OTP code instantly.
 
 ---
 
 ### Screen 4: Home Screen (Customer Dashboard)
 *   **Visual Layout:** Structured top search bar with double column grid tiles for service categories.
-*   **Elements:**
-    *   Header: Greeting with user name and address dropdown selector.
-    *   Search Input: "Search for Electrician, Plumber..."
-    *   Category Grid: Large card buttons for **Electrician (⚡)**, **Plumber (🚰)**, **Carpenter (🔧)**, and **AC Repair (❄️)**.
-    *   Hero+ Membership Promo Banner: Waived service fees info card.
+*   **Wireframe Blueprint:**
+    ```
+    +------------------------------------------+
+    | 📍 Jubilee Hills, Hyd ▼             [👓] |
+    | "Good Morning, Sarah"                    |
+    +------------------------------------------+
+    | [ Search for tapping, AC repair...     ] |
+    +------------------------------------------+
+    |  Categories:                             |
+    |  +------------------+ +----------------+ |
+    |  |  ❄️ AC Repair     | | 🚰 Plumbing   | |
+    |  +------------------+ +----------------+ |
+    |  |  ⚡ Electrical   | | 🔧 Handyman   | |
+    |  +------------------+ +----------------+ |
+    +------------------------------------------+
+    |  🌟 Promo: Hero+ subscription at ₹999/yr  |
+    |  Waived service fees & annual home checks|
+    +------------------------------------------+
+    |  🏠 Home     🔔 Alerts    👤 Profile      |
+    +------------------------------------------+
+    ```
 *   **UX Recommendation:** Place a persistent "Simple View" toggle at the top right for senior-friendly accessibility layouts.
 
 ---
 
 ### Screen 5: Service Listing Screen
 *   **Visual Layout:** Single column vertical cards showing standard service packages.
-*   **Elements:**
-    *   Category Header: e.g., "Plumbing Repairs" with back navigation.
-    *   Package Cards: e.g., "Leaky Tap Repair", "Drain Blockage", "Washbasin Installation".
-    *   Metadata: Base prices, typical duration, and popularity badges ("Most Booked").
-    *   Sticky Footer: "Items in booking: 1 | Estimate: ₹450".
+*   **Wireframe Blueprint:**
+    ```
+    +------------------------------------------+
+    | ← Plumbing Services                      |
+    +------------------------------------------+
+    | +--------------------------------------+ |
+    | | Leaky Tap Repair       [Popular]     | |
+    | | Fix leaking faucets, washers & pipes | |
+    | | Est Time: 45 min     Price: ₹450     | |
+    | | [ Add to Plan ]                      | |
+    | +--------------------------------------+ |
+    | +--------------------------------------+ |
+    | | Washbasin Installation               | |
+    | | Complete basin replacement           | |
+    | | Est Time: 90 min     Price: ₹1,200   | |
+    | | [ Add to Plan ]                      | |
+    | +--------------------------------------+ |
+    | +--------------------------------------+ |
+    | | Items in plan: 1       Total: ₹450   | |
+    | | [ Configure Schedule ]               | |
+    | +--------------------------------------+ |
+    +------------------------------------------+
+    ```
 *   **UX Recommendation:** Use clear illustration thumbnails for each package to increase confidence.
 
 ---
 
 ### Screen 6: Technician Details Screen
-*   **Visual Layout:** Split-screen overlay. Upper third shows profile; lower two-thirds shows reviews and verification.
-*   **Elements:**
-    *   Header: Profile photo, verified checkmark badge (`✓ Verified Hero`), overall score (`★ 4.9`), and completed job count.
-    *   Vetting Panel: Explicit indicators ("Checkr background check passed", "License verified", "Fully Insured up to ₹50k").
-    *   Recent Reviews List: Scrolling feed showing review details.
+*   **Visual Layout:** Upper third shows profile; lower two-thirds shows reviews and verification checkpoints.
+*   **Wireframe Blueprint:**
+    ```
+    +------------------------------------------+
+    | ← Hero Profile                           |
+    |   👨‍🔧 Marcus Fernandes                     |
+    |   ★ 4.9 (140+ jobs completed)            |
+    |   ✓ Verified Hero                        |
+    +------------------------------------------+
+    | Vetting Checkpoints:                     |
+    | [✓] Identity Checked (Stripe ID)         |
+    | [✓] Background Check Passed (Checkr)     |
+    | [✓] Covered under ₹50k liability pool    |
+    +------------------------------------------+
+    | Customer Reviews:                        |
+    | "Super clean work and friendly behavior" |
+    |  - Priya S. (★★★★★)                      |
+    | "Completed tapping repair in 30 minutes"  |
+    |  - Rajesh K. (★★★★☆)                     |
+    +------------------------------------------+
+    ```
 *   **UX Recommendation:** Emphasize the "Verified" indicator to reduce client safety anxieties.
 
 ---
 
 ### Screen 7: Booking Screen (Price Estimator)
 *   **Visual Layout:** Form-based layout compiling totals dynamically.
-*   **Elements:**
-    *   Input Options: Incrementor selectors (e.g., number of appliances to service).
-    *   Scheduler Grid: Calendar picker with 1-hour slots.
-    *   Dynamic Cost Summary Panel: Real-time estimate breakdown showing base rates, surcharge parameters, and totals.
+*   **Wireframe Blueprint:**
+    ```
+    +------------------------------------------+
+    | ← Booking: Deep Cleaning                 |
+    +------------------------------------------+
+    | Select Room Count:                       |
+    | [ - ]          2 Rooms           [ + ]   |
+    +------------------------------------------+
+    | Options:                                 |
+    | [x] Have pets (+₹300)                    |
+    | [ ] Eco-friendly supplies (+₹200)        |
+    +------------------------------------------+
+    | Schedule Window (1-Hour Slots):          |
+    | +--------+ +--------+ +--------+         |
+    | | 10 AM  | | 11 AM  | | 12 PM  |         |
+    | | Rec    | |        | |        |         |
+    | +--------+ +--------+ +--------+         |
+    +------------------------------------------+
+    | [ Confirm & Hold Escrow (₹1500) ]        |
+    +------------------------------------------+
+    ```
 *   **UX Recommendation:** Avoid full page refreshes. Calculate price parameters inline as selections change.
 
 ---
 
 ### Screen 8: Payment Screen (Escrow Authorization)
 *   **Visual Layout:** Checkout layout focusing on secure payment structures.
-*   **Elements:**
-    *   Billing Breakdown: Detailed cost summary listing total payment (held in escrow).
-    *   Payment Methods: UPI (Google Pay / PhonePe) quick-actions, credit cards, or net-banking options.
-    *   Trust Prompt: "Payment will be held securely. Only released to technician after job sign-off."
+*   **Wireframe Blueprint:**
+    ```
+    +------------------------------------------+
+    | ← Secure Checkout                        |
+    +------------------------------------------+
+    | Booking Escrow Bill:                     |
+    | Base Cleaning:     ₹1200                 |
+    | Pet Surcharge:     ₹300                  |
+    | Total Escrow:      ₹1500                 |
+    +------------------------------------------+
+    | Select Payment Option:                   |
+    | ( ) UPI (GPay / PhonePe)                 |
+    | ( ) Credit / Debit Card (Stripe Connect) |
+    | ( ) Netbanking                           |
+    +------------------------------------------+
+    | 🛡️ Payment held securely in escrow.       |
+    | [ Authorize Hold on ₹1500 ]              |
+    +------------------------------------------+
+    ```
 *   **UX Recommendation:** Place the Stripe Secure checkout branding logo prominently to build trust.
 
 ---
 
 ### Screen 9: Live Tracking Screen
 *   **Visual Layout:** Full-screen geofenced map layer with profile card overlay.
-*   **Elements:**
-    *   Map layer: Showpins for home address, technician's real-time coordinate position (updated via WebSockets), and route trajectory.
-    *   Hero Card Overlay: Marcus's photo, star rating, ETA text ("Arriving in 6 minutes"), call/chat quick actions, and an emergency SOS panic button.
+*   **Wireframe Blueprint:**
+    ```
+    +------------------------------------------+
+    |              [ Map View ]                |
+    |                                          |
+    |      [Home]                              |
+    |         |                                |
+    |         . . . . [🚗 Marcus (Hero)]       |
+    |                                          |
+    +------------------------------------------+
+    | 👨‍🔧 Marcus Fernandes                       |
+    | ✓ Verified Hero   ★ 4.9                  |
+    | ETA: 8 minutes (1.2 km away)             |
+    | +--------------------------------------+ |
+    | | [📞 Call via App]   [💬 Text Message]| |
+    | +--------------------------------------+ |
+    | [🆘 Emergency SOS Panic Trigger ]        |
+    +------------------------------------------+
+    ```
 *   **UX Recommendation:** Maintain a clear vehicle path and provide a push notification when the tech is within 100 meters.
 
 ---
 
 ### Screen 10: Reviews & Ratings Screen
 *   **Visual Layout:** Simple card feedback collection form.
-*   **Elements:**
-    *   Star Rating: 5 large stars allowing tap interactions.
-    *   Quick tags: Option tags ("Punctual", "Clean cleanup", "Fair behavior").
-    *   Comment Box: Text area for detailed remarks.
-    *   CTA: "Submit Review & Complete Escrow".
+*   **Wireframe Blueprint:**
+    ```
+    +------------------------------------------+
+    | Share Your Feedback                      |
+    +------------------------------------------+
+    | How was your repair with Marcus?         |
+    |                                          |
+    |       ★   ★   ★   ★   ☆                  |
+    |            (4 Stars)                     |
+    +------------------------------------------+
+    | What went well?                          |
+    | [x] Punctual    [ ] Clean cleanup        |
+    | [x] Fair behavior                        |
+    +------------------------------------------+
+    | Comments:                                |
+    | [ Excellent tapping service!           ] |
+    +------------------------------------------+
+    | [ Submit Review & Release Payout ]       |
+    +------------------------------------------+
+    ```
 *   **UX Recommendation:** Prompt the review screen immediately upon job completion for maximum capture.
 
 ---
 
 ### Screen 11: Profile & History Screen
 *   **Visual Layout:** Clean account options menu.
-*   **Elements:**
-    *   User Info: Name, phone, and verification badge.
-    *   History List: Cards for past bookings detailing dates, services, costs, and a "Rebook Same Hero" quick-button.
-    *   Support: Dispute center links and cancellation policies.
+*   **Wireframe Blueprint:**
+    ```
+    +------------------------------------------+
+    | 👤 Sarah Chen                            |
+    | +91 98765-43210 (Verified Customer)      |
+    +------------------------------------------+
+    | Past Bookings:                           |
+    | 12-Jun: Deep Cleaning - ₹1,700           |
+    |         Hero: Marcus F. [Rebook pro]     |
+    | 05-Jun: Faucet Repair - ₹450             |
+    |         Hero: Rajesh S. [Rebook pro]     |
+    +------------------------------------------+
+    | Support:                                 |
+    | [?] Raise Dispute Ticket                 |
+    | [!] Cancellation Policies                |
+    +------------------------------------------+
+    ```
 *   **UX Recommendation:** Simplify receipt downloads and repeat booking procedures.
 
 ---
