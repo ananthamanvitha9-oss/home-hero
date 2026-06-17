@@ -4,6 +4,8 @@ require('dotenv').config();
 
 const authRoutes = require('./src/routes/authRoutes');
 const bookingRoutes = require('./src/routes/bookingRoutes');
+const reviewRoutes = require('./src/routes/reviewRoutes');
+const notificationRoutes = require('./src/routes/notificationRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -24,6 +26,8 @@ app.get('/', (req, res) => {
 // Route Integrations
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/bookings', bookingRoutes);
+app.use('/api/v1/reviews', reviewRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

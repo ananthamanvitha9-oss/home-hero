@@ -212,3 +212,99 @@ Called when the user confirms completion, releasing payment to the provider.
   "status": "transferred"
 }
 ```
+
+---
+
+## 6. Reviews & Ratings Module
+
+### 6.1 Create Rating & Review
+Allows a customer to submit a rating and text feedback for a technician upon job completion.
+*   **Endpoint:** `POST /reviews`
+*   **Headers:** `Authorization: Bearer <token>`
+*   **Request Body:**
+```json
+{
+  "booking_id": "f51c17d0-1cfa-42f5-b286-63ad5ff50b8c",
+  "rating": 5,
+  "comment": "Super clean work and friendly behavior!"
+}
+```
+*   **Response (221 Created):**
+```json
+{
+  "success": true,
+  "message": "Review submitted successfully.",
+  "review": {
+    "id": "rev_718c17d0-1cfa-42f5-b286-63ad5ff50b8c",
+    "reviewer_id": "cust_321c17d0-1cfa-42f5",
+    "reviewee_id": "hero_902c17d0-1cfa-42f5",
+    "rating": 5,
+    "comment": "Super clean work and friendly behavior!"
+  }
+}
+```
+*   **Error Codes:**
+    *   `400 Bad Request`: Missing fields or rating not within 1-5 stars.
+    *   `401 Unauthorized`: Authentication token missing or invalid.
+    *   `404 Not Found`: Booking ID does not exist.
+
+### 6.2 Fetch Reviews for Technician
+Retrieves list of reviews and average rating score for a specific service provider.
+*   **Endpoint:** `GET /reviews/technician/:id`
+*   **Response (200 OK):**
+```json
+{
+  "technician_id": "hero_902c17d0-1cfa-42f5",
+  "average_rating": 4.85,
+  "total_reviews": 12,
+  "reviews": [
+    {
+      "id": "rev_718c17d0-1cfa-42f5-b286-63ad5ff50b8c",
+      "rating": 5,
+      "comment": "Super clean work and friendly behavior!",
+      "created_at": "2026-06-20T16:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+## 7. Notifications Module
+
+### 7.1 Retrieve Notifications
+Retrieves push logs and alerts for the authenticated user.
+*   **Endpoint:** `GET /notifications`
+*   **Headers:** `Authorization: Bearer <token>`
+*   **Response (200 OK):**
+```json
+{
+  "notifications": [
+    {
+      "id": "notif_908c17d0-1cfa-42f5-b286",
+      "title": "Hero Matched!",
+      "body": "Marcus has accepted your booking and is en route.",
+      "is_read": false,
+      "created_at": "2026-06-17T10:05:05Z"
+    }
+  ]
+}
+```
+
+### 7.2 Toggle Notification Read Status
+Marks a specific alert as read.
+*   **Endpoint:** `PUT /notifications/:id/read`
+*   **Headers:** `Authorization: Bearer <token>`
+*   **Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Notification marked as read.",
+  "notification_id": "notif_908c17d0-1cfa-42f5-b286",
+  "is_read": true
+}
+```
+*   **Error Codes:**
+    *   `401 Unauthorized`: Token invalid.
+    *   `404 Not Found`: Notification ID does not match.
+

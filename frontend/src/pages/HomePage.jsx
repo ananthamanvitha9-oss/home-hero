@@ -1,0 +1,48 @@
+import React from 'react';
+import { ServiceCard } from '../components/ServiceCard';
+
+export function HomePage({ currentCategory, onSelectCategory, onNextStep }) {
+  return (
+    <div className="home-page glass-card">
+      <h2>Select Service Category</h2>
+      <p className="search-sub">Choose a household expert verified for quality.</p>
+      
+      <div className="category-grid" style={{ marginTop: '15px' }}>
+        {[
+          { id: 'cleaning', name: 'Deep Cleaning', icon: '🧹' },
+          { id: 'handyman', name: 'General Handyman', icon: '🔧' },
+          { id: 'plumbing', name: 'Plumbing Service', icon: '🚰' },
+          { id: 'electrical', name: 'Electrical Works', icon: '⚡' }
+        ].map(cat => (
+          <ServiceCard
+            key={cat.id}
+            id={cat.id}
+            name={cat.name}
+            icon={cat.icon}
+            isSelected={currentCategory === cat.id}
+            onClick={() => onSelectCategory(cat.id)}
+          />
+        ))}
+      </div>
+
+      <hr className="divider" style={{ margin: '20px 0' }} />
+
+      <div className="promo-panel" style={{
+        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(162, 89, 255, 0.08))',
+        border: '1px solid var(--border-slate)',
+        borderRadius: '10px',
+        padding: '20px',
+        textAlign: 'left'
+      }}>
+        <h3>🦸‍♂️ Join the Hero+ Club</h3>
+        <p style={{ color: 'var(--text-gray)', fontSize: '0.9rem', marginTop: '5px' }}>
+          Subscribe to annual maintenance bundles for only ₹999/year. Get free emergency home checks and waived platform booking fees!
+        </p>
+      </div>
+
+      <button className="book-now-btn" style={{ marginTop: '10px' }} onClick={onNextStep}>
+        Configure Service Plan
+      </button>
+    </div>
+  );
+}
