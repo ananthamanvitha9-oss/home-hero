@@ -1,11 +1,9 @@
-import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useState } from 'react';
+import { useAuth } from '../context/useAuth';
 import { api } from '../services/api';
 
 export function LoginPage() {
   const { login } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [phone, setPhone] = useState('');
@@ -38,6 +36,7 @@ export function LoginPage() {
         setError(res.message || 'Verification failed.');
       }
     } catch (err) {
+      console.error(err);
       setError('An error occurred during verification.');
     }
   };

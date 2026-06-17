@@ -1,5 +1,3 @@
-import React from 'react';
-
 export function TrackingPage({ bookingStep, countdown, onCancel }) {
   return (
     <div className="tracking-page">

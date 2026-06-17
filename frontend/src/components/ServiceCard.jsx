@@ -1,6 +1,4 @@
-import React from 'react';
-
-export function ServiceCard({ id, name, icon, isSelected, onClick }) {
+export function ServiceCard({ name, icon, isSelected, onClick }) {
   return (
     <button 
       className={`category-card ${isSelected ? 'selected' : ''}`}

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { useState, useEffect } from 'react';
+import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './context/useAuth';
 import { SimpleViewToggle } from './components/SimpleViewToggle';
 import { LoginPage } from './pages/LoginPage';
 import { HomePage } from './pages/HomePage';
@@ -43,7 +44,7 @@ function MainAppContent() {
 
   // Dynamic pricing calculation during render
   const rates = pricingConfig[category];
-  let estimatedPrice = rates.base;
+  let estimatedPrice;
   if (category === 'cleaning') {
     estimatedPrice = rates.base + (bedrooms - 1) * rates.hourly * rates.roomMultiplier;
     if (hasPets) estimatedPrice += rates.petSurcharge;

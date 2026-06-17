@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useState } from 'react';
+import { useAuth } from '../context/useAuth';
 import { api } from '../services/api';
 
 export function ProfilePage() {
@@ -26,6 +26,7 @@ export function ProfilePage() {
         setSuccess('Review submitted successfully!');
       }
     } catch (err) {
+      console.error(err);
       // Fallback local append for testing
       setReviewsList([...reviewsList, { id: Date.now().toString(), rating, comment }]);
       setComment('');
