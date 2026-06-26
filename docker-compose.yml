@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  database:
+    image: mongo:latest
+    container_name: homehero-db
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - homehero-network
+
+  backend:
+    build: ./backend
+    container_name: homehero-api
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - MONGO_URI=mongodb://database:27017/homehero
+      - JWT_SECRET=homehero_super_secret_jwt_key
+      - RAZORPAY_KEY_ID=rzp_test_mockkeyid123
+      - RAZORPAY_KEY_SECRET=mocksecretkey456
+      - NODE_ENV=development
+    depends_on:
+      - database
+    networks:
+      - homehero-network
+
+  frontend:
+    build: ./frontend
+    container_name: homehero-ui
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - homehero-network
+
+volumes:
+  mongo-data:
+
+networks:
+  homehero-network:
+    driver: bridge

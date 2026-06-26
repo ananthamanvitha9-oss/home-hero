@@ -1,27 +1,43 @@
-import { createContext, useState } from 'react';
-
-export const AuthContext = createContext(null);
+import { useState } from 'react';
+import { AuthContext } from './AuthContextCore';
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState({
-    id: 'cust_849201',
-    firstName: 'Sarah',
-    lastName: 'Chen',
-    email: 'sarah.chen@example.com',
-    role: 'customer'
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('user');
+    return saved ? JSON.parse(saved) : null;
   });
-  const [token, setToken] = useState('mock_jwt_token_payload');
-  const [portalMode, setPortalMode] = useState('customer'); // 'customer' | 'hero'
-  const [simpleView, setSimpleView] = useState(false); // Accessibility toggle
+  const [token, setToken] = useState(() => {
+    return localStorage.getItem('token') || null;
+  });
+  const [portalMode, setPortalMode] = useState(() => {
+    return localStorage.getItem('portalMode') || 'customer';
+  });
+  const [simpleView, setSimpleView] = useState(() => {
+    return localStorage.getItem('simpleView') === 'true';
+  });
 
   const login = (userData, userToken) => {
     setUser(userData);
     setToken(userToken);
+    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('token', userToken);
+  };
+
+  const updatePortalMode = (mode) => {
+    setPortalMode(mode);
+    localStorage.setItem('portalMode', mode);
+  };
+
+  const updateSimpleView = (view) => {
+    setSimpleView(view);
+    localStorage.setItem('simpleView', view ? 'true' : 'false');
   };
 
   const logout = () => {
     setUser(null);
     setToken(null);
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
   };
 
   return (
@@ -29,9 +45,9 @@ export function AuthProvider({ children }) {
       user,
       token,
       portalMode,
-      setPortalMode,
+      setPortalMode: updatePortalMode,
       simpleView,
-      setSimpleView,
+      setSimpleView: updateSimpleView,
       login,
       logout
     }}>

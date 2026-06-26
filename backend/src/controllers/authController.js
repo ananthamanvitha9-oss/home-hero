@@ -1,105 +1,179 @@
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-
-// In-Memory User store for mock testing (falls back to PostgreSQL in production)
-const users = [];
+const User = require('../models/userModel');
+const AppError = require('../core/errors/AppError');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'homehero_super_secret_jwt_key';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
-exports.register = async (req, res) => {
+// Helper to sign JWT token
+const signToken = (id, email, role) => {
+  return jwt.sign({ id, email, role }, JWT_SECRET, {
+    expiresIn: JWT_EXPIRES_IN
+  });
+};
+
+exports.register = async (req, res, next) => {
   try {
-    const { email, phone, password, role, first_name, last_name } = req.body;
+    const { email, phone, password, role, firstName, lastName } = req.body;
 
-    if (!email || !phone || !password || !role || !first_name || !last_name) {
-      return res.status(400).json({ success: false, message: 'All fields are required.' });
-    }
-
-    const userExists = users.find(u => u.email === email || u.phone === phone);
+    // Check if user already exists
+    const userExists = await User.findOne({ $or: [{ email: email.toLowerCase() }, { phone }] });
     if (userExists) {
-      return res.status(409).json({ success: false, message: 'Email or phone already registered.' });
+      return next(new AppError('Email or phone already registered.', 409));
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = {
-      id: Math.random().toString(36).substring(2, 15),
+    // Generate standard 6-digit OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes validity
+
+    const newUser = new User({
       email,
       phone,
-      password_hash: hashedPassword,
-      role,
-      first_name,
-      last_name,
-      is_verified: false,
-      created_at: new Date()
-    };
+      passwordHash: password, // Will be hashed via User model pre-save hook
+      role: role.toLowerCase(),
+      firstName,
+      lastName,
+      otpCode,
+      otpExpiry,
+      isVerified: false
+    });
 
-    users.push(newUser);
+    await newUser.save();
+
+    console.log(`[OTP Dispatcher] Sent OTP ${otpCode} to phone ${phone}`);
 
     res.status(201).json({
       success: true,
       message: 'Registration successful. Verification OTP sent.',
       user: {
-        id: newUser.id,
+        id: newUser._id,
         email: newUser.email,
         phone: newUser.phone,
         role: newUser.role,
-        is_verified: newUser.is_verified
-      }
+        is_verified: newUser.isVerified
+      },
+      debugOtp: otpCode 
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    next(err);
   }
 };
 
-exports.login = async (req, res) => {
+exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Email and password required.' });
-    }
-
-    const user = users.find(u => u.email === email);
+    // Locate user
+    const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials.' });
+      return next(new AppError('Invalid credentials.', 401));
     }
 
-    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    // Verify password match using the User instance method
+    const passwordMatch = await user.comparePassword(password);
     if (!passwordMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials.' });
+      return next(new AppError('Invalid credentials.', 401));
     }
 
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    // Generate JWT
+    const token = signToken(user._id, user.email, user.role);
 
-    res.json({
+    res.status(200).json({
       success: true,
       token,
       user: {
-        id: user.id,
+        id: user._id,
         email: user.email,
         role: user.role,
-        first_name: user.first_name,
-        last_name: user.last_name
+        first_name: user.firstName,
+        last_name: user.lastName,
+        is_verified: user.isVerified
       }
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    next(err);
   }
 };
 
-exports.verifyOtp = async (req, res) => {
-  const { phone, otp_code } = req.body;
-  if (!phone || !otp_code) {
-    return res.status(400).json({ success: false, message: 'Phone and OTP code required.' });
-  }
+exports.verifyOtp = async (req, res, next) => {
+  try {
+    const { phone, otp_code } = req.body;
 
-  // Auto-verify for test configurations
-  res.json({
-    success: true,
-    message: 'Phone number successfully verified.',
-    token: jwt.sign({ phone }, JWT_SECRET, { expiresIn: '24h' })
-  });
+    // Find user
+    const user = await User.findOne({ phone });
+    if (!user) {
+      return next(new AppError('User with this phone number not found.', 404));
+    }
+
+    // Verify OTP
+    if (user.otpCode !== otp_code) {
+      return next(new AppError('Invalid verification code.', 400));
+    }
+
+    if (user.otpExpiry < new Date()) {
+      return next(new AppError('Verification code has expired.', 400));
+    }
+
+    // Mark verified
+    user.isVerified = true;
+    user.otpCode = null;
+    user.otpExpiry = null;
+    await user.save();
+
+    // Auto-create Technician profile if user is a provider
+    if (user.role === 'provider') {
+      const Technician = require('../models/technicianModel');
+      const techExists = await Technician.findOne({ userId: user._id });
+      if (!techExists) {
+        await Technician.create({
+          userId: user._id,
+          skills: ['plumbing', 'electrical'], // default skills
+          currentLocation: {
+            type: 'Point',
+            coordinates: [78.382021, 17.426210] // default Hyderabad coords
+          },
+          isOnline: true, // Auto set to online for ease of demo matching
+          verification: {
+            status: 'verified',
+            licenseVerified: true,
+            backgroundCheckStatus: 'passed',
+            verifiedAt: new Date()
+          }
+        });
+      }
+    }
+
+    // Generate verified token
+    const token = signToken(user._id, user.email, user.role);
+
+    res.status(200).json({
+      success: true,
+      message: 'Phone number successfully verified.',
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        first_name: user.firstName,
+        last_name: user.lastName,
+        is_verified: user.isVerified
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.logout = async (req, res, next) => {
+  try {
+    // Statelss JWT doesn't strictly need backend invalidation unless blacklisted.
+    // We clear cookies if used and return success.
+    res.cookie('token', '', { expires: new Date(0), httpOnly: true });
+    res.status(200).json({
+      success: true,
+      message: 'Successfully logged out.'
+    });
+  } catch (err) {
+    next(err);
+  }
 };

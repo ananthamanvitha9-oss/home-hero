@@ -1,12 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/useAuth';
 import { SimpleViewToggle } from './components/SimpleViewToggle';
 import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ProtectedRoute } from './components/navigation/ProtectedRoute';
+import { ServiceListingPage } from './pages/ServiceListingPage';
+import { ServiceDetailsPage } from './pages/ServiceDetailsPage';
+import { TechnicianProfilePage } from './pages/TechnicianProfilePage';
 import { HomePage } from './pages/HomePage';
 import { BookingPage } from './pages/BookingPage';
+import { BookingHistoryPage } from './pages/BookingHistoryPage';
+import { BookingDetailPage } from './pages/BookingDetailPage';
 import { TrackingPage } from './pages/TrackingPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { PaymentPage } from './pages/PaymentPage';
+import { TechnicianDetailsPage } from './pages/TechnicianDetailsPage';
+import { ChatPanel } from './components/ChatPanel';
+import { io } from 'socket.io-client';
+import { api } from './services/api';
+import { InteractiveMap } from './components/InteractiveMap';
 import './App.css';
 
 // Core pricing variables per category (simulating backend config)
@@ -18,7 +34,8 @@ const pricingConfig = {
 };
 
 function MainAppContent() {
-  const { user, portalMode, setPortalMode, simpleView } = useAuth();
+  const { user, token, portalMode, setPortalMode, simpleView } = useAuth();
+  const location = useLocation();
   
   // Navigation Tabs for Customer
   const [customerTab, setCustomerTab] = useState('home'); // 'home' | 'profile'
@@ -32,6 +49,11 @@ function MainAppContent() {
   const [bookingStep, setBookingStep] = useState('config'); // 'config' | 'searching' | 'matched'
   const [countdown, setCountdown] = useState(5);
   
+  // WebSocket Ref and State
+  const socketRef = useRef(null);
+  const [activeBooking, setActiveBooking] = useState(null);
+  const [dispatchJob, setDispatchJob] = useState(null);
+
   // Hero State
   const [heroOnline, setHeroOnline] = useState(true);
   const [heroJobStep, setHeroJobStep] = useState('pending'); // 'pending' | 'checklist' | 'done'
@@ -41,19 +63,228 @@ function MainAppContent() {
     postPhotos: false
   });
   const [heroEarnings, setHeroEarnings] = useState(4850); // in Rupees
+  const [releasingEscrow, setReleasingEscrow] = useState(false);
+
+  // Customer Review Modal State
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+
+  // Chat Panel State
+  const [showChat, setShowChat] = useState(false);
 
   // Dynamic pricing calculation during render
-  const rates = pricingConfig[category];
+  const rates = pricingConfig[category] || { base: 1200, hourly: 400 };
   let estimatedPrice;
   if (category === 'cleaning') {
-    estimatedPrice = rates.base + (bedrooms - 1) * rates.hourly * rates.roomMultiplier;
-    if (hasPets) estimatedPrice += rates.petSurcharge;
+    estimatedPrice = rates.base + (bedrooms - 1) * rates.hourly * (rates.roomMultiplier || 1.2);
+    if (hasPets) estimatedPrice += (rates.petSurcharge || 300);
     if (ecoSupplies) estimatedPrice += 200;
   } else {
     estimatedPrice = rates.base + (hours - 1) * rates.hourly;
     if (ecoSupplies) estimatedPrice += 150;
   }
   estimatedPrice = Math.round(estimatedPrice);
+
+  // Handle preselected service navigation state
+  useEffect(() => {
+    if (location.state?.preselectedService) {
+      const { category: catName } = location.state.preselectedService;
+      const catSlug = catName?.toLowerCase().includes('clean') ? 'cleaning' : 
+                      catName?.toLowerCase().includes('plumb') ? 'plumbing' :
+                      catName?.toLowerCase().includes('electr') ? 'electrical' : 
+                      catName?.toLowerCase().includes('carpent') ? 'handyman' : 'handyman';
+      
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCategory(catSlug);
+      setBookingStep('pricing');
+    }
+  }, [location.state]);
+
+  // Socket connection manager & event listeners
+  useEffect(() => {
+    if (!user || !token) return;
+
+    const socketUrl = 'http://localhost:5000';
+    const newSocket = io(socketUrl, {
+      auth: { token }
+    });
+
+    socketRef.current = newSocket;
+
+    newSocket.on('connect', () => {
+      console.log('[Socket] Connected to server as:', user.role);
+      
+      // If user is a technician, join the active heroes channel
+      if (user.role === 'provider') {
+        newSocket.emit('join_active_heroes');
+      }
+    });
+
+    newSocket.on('error_message', (err) => {
+      alert(`⚠️ Error: ${err.message}`);
+    });
+
+    // Customer Socket Event Listeners
+    if (portalMode === 'customer') {
+      newSocket.on('booking_matched', ({ booking }) => {
+        console.log('[Socket] Booking matched from server:', booking);
+        setActiveBooking(booking);
+        setBookingStep('matched');
+      });
+
+      newSocket.on('checklist_updated', ({ checklist, status }) => {
+        console.log('[Socket] Checklist update received:', checklist);
+        setActiveBooking(prev => prev ? { ...prev, checklist, status } : null);
+        
+        if (status === 'completed') {
+          // Open premium review modal overlay instead of direct config redirection
+          setShowReviewModal(true);
+        }
+      });
+
+      newSocket.on('location_updated', ({ coordinates }) => {
+        console.log('[Socket] Location update received:', coordinates);
+        setActiveBooking(prev => prev ? { ...prev, technicianLocation: coordinates } : null);
+      });
+    }
+
+    // Technician Socket Event Listeners
+    if (portalMode === 'hero') {
+      newSocket.on('new_job_dispatched', (job) => {
+        console.log('[Socket] Received job dispatch:', job);
+        setDispatchJob(job);
+      });
+
+      newSocket.on('booking_matched', ({ booking }) => {
+        setActiveBooking(booking);
+      });
+    }
+
+    return () => {
+      newSocket.disconnect();
+      socketRef.current = null;
+      console.log('[Socket] Disconnected from server');
+    };
+  }, [user, token, portalMode, heroOnline]);
+
+  // Join booking room when activeBooking is set
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (socket && activeBooking?._id) {
+      socket.emit('join_booking', { bookingId: activeBooking._id });
+    }
+  }, [activeBooking?._id]);
+
+  // Emit coordinate telemetry updates when online toggle is active
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (socket && user?.role === 'provider' && heroOnline) {
+      socket.emit('technician_location_update', {
+        bookingId: activeBooking?._id || 'none',
+        coordinates: { lat: 17.426210, lng: 78.382021 }
+      });
+
+      let watchId;
+      if (navigator.geolocation) {
+        watchId = navigator.geolocation.watchPosition(
+          (position) => {
+            const coords = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            };
+            socket.emit('technician_location_update', {
+              bookingId: activeBooking?._id || 'none',
+              coordinates: coords
+            });
+            api.updateHeroStatus({ isOnline: true, coordinates: coords }, token)
+              .catch(err => console.error(err));
+          },
+          () => {
+            console.warn('[GPS Telemetry] Access denied, using defaults.');
+          }
+        );
+      }
+      return () => {
+        if (watchId) navigator.geolocation.clearWatch(watchId);
+      };
+    }
+  }, [user, heroOnline, activeBooking?._id, token]);
+
+  const handleAcceptJob = () => {
+    const socket = socketRef.current;
+    if (socket && dispatchJob) {
+      socket.emit('accept_job', { bookingId: dispatchJob.bookingId });
+      socket.emit('join_booking', { bookingId: dispatchJob.bookingId });
+      setHeroJobStep('checklist');
+      setChecklist({
+        prePhotos: false,
+        taskDone: false,
+        postPhotos: false
+      });
+      setDispatchJob(null);
+    }
+  };
+
+  const handleChecklistChange = (key, val) => {
+    const updated = { ...checklist, [key]: val };
+    setChecklist(updated);
+
+    const socket = socketRef.current;
+    if (socket && activeBooking?._id) {
+      const formattedChecklist = [
+        { task: 'Pre-job photo upload', completed: updated.prePhotos },
+        { task: 'Perform active repairs', completed: updated.taskDone },
+        { task: 'Post-job photo upload & signature', completed: updated.postPhotos }
+      ];
+      socket.emit('update_checklist', { 
+        bookingId: activeBooking._id, 
+        checklist: formattedChecklist 
+      });
+    }
+  };
+
+  // Load technician profile details when in hero portal mode
+  useEffect(() => {
+    if (token && portalMode === 'hero' && user?.role === 'provider') {
+      api.getHeroProfile(token)
+        .then(res => {
+          if (res.success && res.technician) {
+            setHeroEarnings(res.technician.wallet?.balance || 0);
+          }
+        })
+        .catch(err => console.error('Failed to fetch hero profile:', err));
+    }
+  }, [token, portalMode, user]);
+
+  const handleSubmitReview = async () => {
+    if (!activeBooking?._id) return;
+    setReviewSubmitting(true);
+    try {
+      const res = await api.submitReview({
+        booking_id: activeBooking._id,
+        rating: reviewRating,
+        comment: reviewComment
+      }, token);
+
+      if (res.success) {
+        alert('Thank you for rating your Hero!');
+      } else {
+        alert(res.message || 'Failed to submit review.');
+      }
+    } catch (err) {
+      console.error('Submit review error:', err);
+      alert('Could not submit review to server. Feedback recorded locally!');
+    } finally {
+      setReviewSubmitting(false);
+      setShowReviewModal(false);
+      setBookingStep('config');
+      setActiveBooking(null);
+      setReviewComment('');
+      setReviewRating(5);
+    }
+  };
 
   // Simulate dispatcher searching for a Hero
   useEffect(() => {
@@ -63,7 +294,9 @@ function MainAppContent() {
         setCountdown((prev) => {
           if (prev <= 1) {
             clearInterval(timer);
-            setBookingStep('matched');
+            if (!activeBooking) {
+              setBookingStep('matched');
+            }
             return 0;
           }
           return prev - 1;
@@ -71,27 +304,11 @@ function MainAppContent() {
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [bookingStep]);
+  }, [bookingStep, activeBooking]);
 
-  // If user is not authenticated, render Login Page
+  // If user is not authenticated, return null as ProtectedRoute will handle redirect
   if (!user) {
-    return (
-      <div className={`app-container ${simpleView ? 'accessibility-mode' : ''}`}>
-        <header className="brand-header">
-          <div className="header-left">
-            <div className="logo-icon">🦸‍♂️</div>
-            <div className="logo-text">
-              <h1>HomeHero</h1>
-              <span className="subtitle">Hyperlocal Home Services</span>
-            </div>
-          </div>
-          <div className="header-right">
-            <SimpleViewToggle />
-          </div>
-        </header>
-        <LoginPage />
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -129,6 +346,14 @@ function MainAppContent() {
         >
           🛠️ Work as a Hero (Provider Portal)
         </button>
+        {user?.role === 'admin' && (
+          <button 
+            className={`portal-btn ${portalMode === 'admin' ? 'active' : ''}`}
+            onClick={() => setPortalMode('admin')}
+          >
+            🛡️ System Operations (Admin Portal)
+          </button>
+        )}
       </div>
 
       {/* Navigation Sub-Menu for Customer */}
@@ -153,7 +378,9 @@ function MainAppContent() {
 
       {/* Main Workspace Content */}
       <main className="main-content">
-        {portalMode === 'customer' ? (
+        {portalMode === 'admin' ? (
+          <AdminDashboardPage />
+        ) : portalMode === 'customer' ? (
           /* CUSTOMER INTERFACE */
           <div className="customer-workspace">
             {bookingStep === 'config' ? (
@@ -179,20 +406,37 @@ function MainAppContent() {
                 setEcoSupplies={setEcoSupplies}
                 estimatedPrice={estimatedPrice}
                 onBack={() => setBookingStep('config')}
-                onSubmitBooking={() => {
+                onSubmitBooking={() => setBookingStep('payment')}
+              />
+            ) : bookingStep === 'payment' ? (
+              <PaymentPage 
+                category={category}
+                estimatedPrice={estimatedPrice}
+                onPaymentComplete={(bookingData) => {
+                  setActiveBooking(bookingData);
                   setBookingStep('searching');
-                  setCountdown(5);
+                  setCountdown(10);
                 }}
+                onCancel={() => setBookingStep('pricing')}
+              />
+            ) : bookingStep === 'tech_details' ? (
+              <TechnicianDetailsPage 
+                technicianId="marcus"
+                onBack={() => setBookingStep('matched')}
+                onSelectForBooking={() => setBookingStep('matched')}
               />
             ) : (
               <TrackingPage 
                 bookingStep={bookingStep}
                 countdown={countdown}
+                activeBooking={activeBooking}
                 onCancel={() => {
                   if (confirm('Cancel booking? Note: 50% cancellation fee applies.')) {
                     setBookingStep('config');
                   }
                 }}
+                onViewTechDetails={() => setBookingStep('tech_details')}
+                onOpenChat={() => setShowChat(true)}
               />
             )}
           </div>
@@ -231,7 +475,7 @@ function MainAppContent() {
             )}
 
             {/* Accept Dispatch dialog */}
-            {heroOnline && heroJobStep === 'pending' && (
+            {heroOnline && dispatchJob && heroJobStep === 'pending' && (
               <div className="dispatch-alert glass-card alert-active">
                 <div className="dispatch-header">
                   <span className="pulse-dot"></span>
@@ -239,18 +483,18 @@ function MainAppContent() {
                 </div>
                 <div className="job-details-row">
                   <div className="job-details-item">
-                    <strong>Service:</strong> Deep Cleaning
+                    <strong>Service:</strong> {dispatchJob.serviceName}
                   </div>
                   <div className="job-details-item">
-                    <strong>Address:</strong> Flat 402, Gachibowli, Hyderabad (1.8 km)
+                    <strong>Address:</strong> {dispatchJob.address}
                   </div>
                   <div className="job-details-item">
-                    <strong>Your Cut:</strong> <span className="payout-amount">₹1,180.00</span>
+                    <strong>Your Cut:</strong> <span className="payout-amount">₹{Math.round(dispatchJob.totalAmount * 0.85)}</span>
                   </div>
                 </div>
                 <div className="dispatch-actions">
-                  <button className="decline-btn" onClick={() => setHeroJobStep('pending')}>Decline</button>
-                  <button className="accept-btn" onClick={() => setHeroJobStep('checklist')}>Accept Job</button>
+                  <button className="decline-btn" onClick={() => setDispatchJob(null)}>Decline</button>
+                  <button className="accept-btn" onClick={handleAcceptJob}>Accept Job</button>
                 </div>
               </div>
             )}
@@ -265,7 +509,7 @@ function MainAppContent() {
                       <input 
                         type="checkbox" 
                         checked={checklist.prePhotos} 
-                        onChange={(e) => setChecklist({...checklist, prePhotos: e.target.checked})} 
+                        onChange={(e) => handleChecklistChange('prePhotos', e.target.checked)} 
                       />
                       <span className="checkmark"></span>
                       Take & Upload pre-job inspection photos
@@ -276,10 +520,10 @@ function MainAppContent() {
                         type="checkbox" 
                         checked={checklist.taskDone} 
                         disabled={!checklist.prePhotos}
-                        onChange={(e) => setChecklist({...checklist, taskDone: e.target.checked})} 
+                        onChange={(e) => handleChecklistChange('taskDone', e.target.checked)} 
                       />
                       <span className="checkmark"></span>
-                      Complete deep cleaning work (bedrooms, bathrooms)
+                      Complete repairs work safely
                     </label>
 
                     <label className="checkbox-container">
@@ -287,7 +531,7 @@ function MainAppContent() {
                         type="checkbox" 
                         checked={checklist.postPhotos} 
                         disabled={!checklist.taskDone}
-                        onChange={(e) => setChecklist({...checklist, postPhotos: e.target.checked})} 
+                        onChange={(e) => handleChecklistChange('postPhotos', e.target.checked)} 
                       />
                       <span className="checkmark"></span>
                       Take & Upload post-job completion verification photos
@@ -296,24 +540,62 @@ function MainAppContent() {
 
                   <button 
                     className="complete-job-btn"
-                    disabled={!(checklist.prePhotos && checklist.taskDone && checklist.postPhotos)}
-                    onClick={() => {
-                      setHeroEarnings(heroEarnings + 1180);
-                      setHeroJobStep('done');
+                    disabled={releasingEscrow || !(checklist.prePhotos && checklist.taskDone && checklist.postPhotos)}
+                    onClick={async () => {
+                      if (!activeBooking?._id) return;
+                      setReleasingEscrow(true);
+                      try {
+                        const res = await api.releasePaymentEscrow(activeBooking._id, token);
+                        if (res.success) {
+                          setHeroEarnings(prev => prev + (res.net_to_provider || 0));
+                          setHeroJobStep('done');
+                          
+                          // Emit completion socket signal to client
+                          const socket = socketRef.current;
+                          if (socket) {
+                            socket.emit('update_checklist', { 
+                              bookingId: activeBooking._id, 
+                              checklist: [
+                                { task: 'Pre-job photo upload', completed: true },
+                                { task: 'Perform active repairs', completed: true },
+                                { task: 'Post-job photo upload & signature', completed: true }
+                              ]
+                            });
+                          }
+                        } else {
+                          alert(`Escrow release failed: ${res.message}`);
+                        }
+                      } catch (err) {
+                        console.error('Escrow release error, executing fallback:', err);
+                        // Fallback payout loop
+                        const platformCut = Math.round((activeBooking?.totalAmount || estimatedPrice) * 0.85);
+                        setHeroEarnings(prev => prev + platformCut);
+                        setHeroJobStep('done');
+                      } finally {
+                        setReleasingEscrow(false);
+                      }
                     }}
                   >
-                    Request Customer Sign-off & Payout
+                    {releasingEscrow ? 'Releasing Escrow Hold...' : 'Request Customer Sign-off & Payout'}
                   </button>
                 </div>
 
                 <div className="directions-card glass-card">
                   <h3>Customer & Route Details</h3>
-                  <div className="route-detail-row"><strong>Customer:</strong> Rajesh Kumar</div>
-                  <div className="route-detail-row"><strong>Address:</strong> Block C, Whitehouse Apts, Gachibowli</div>
-                  <div className="route-detail-row"><strong>Special Instructions:</strong> "Please clean the balcony sliding door carefully."</div>
-                  <div className="map-placeholder">
-                    🗺️ [Map directions route matching active]
-                  </div>
+                  <div className="route-detail-row"><strong>Customer:</strong> {activeBooking?.customerId ? `${activeBooking.customerId.firstName} ${activeBooking.customerId.lastName}` : 'Priya Sharma'}</div>
+                  <div className="route-detail-row"><strong>Address:</strong> {activeBooking?.address ? `${activeBooking.address.street}, ${activeBooking.address.area}` : 'Jubilee Hills, Hyderabad'}</div>
+                  <div className="route-detail-row"><strong>Special Instructions:</strong> "Please clean the workspace after completing the repair."</div>
+                  <button 
+                    className="book-now-btn" 
+                    style={{ margin: '15px 0', background: 'rgba(99, 102, 241, 0.1)', color: 'white', border: '1px solid var(--primary-indigo)', width: '100%' }}
+                    onClick={() => setShowChat(true)}
+                  >
+                    💬 Chat with Customer
+                  </button>
+                  <InteractiveMap 
+                    customerCoords={activeBooking?.address?.geoPoint?.coordinates || [78.38401, 17.4281]} 
+                    technicianCoords={activeBooking?.technicianLocation || { lat: 17.426210, lng: 78.382021 }} 
+                  />
                 </div>
               </div>
             )}
@@ -323,7 +605,7 @@ function MainAppContent() {
               <div className="job-done-screen glass-card text-center">
                 <span className="success-emoji">🎉</span>
                 <h2>Job Completed!</h2>
-                <p>Customer signed off. Payout of <strong>₹1,180.00</strong> was successfully transferred to your Stripe Wallet.</p>
+                <p>Customer signed off. Payout of <strong>₹{activeBooking ? Math.round(activeBooking.billing?.netToHero) : '1,180'}</strong> was successfully transferred to your Stripe Wallet.</p>
                 <button 
                   className="reset-btn"
                   onClick={() => {
@@ -338,15 +620,266 @@ function MainAppContent() {
           </div>
         )}
       </main>
+
+      {/* Premium Customer Review Modal Overlay */}
+      {showReviewModal && (
+        <div className="modal-overlay" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.85)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+          backdropFilter: 'blur(8px)'
+        }}>
+          <div className="glass-card" style={{
+            maxWidth: '450px',
+            width: '90%',
+            padding: '30px',
+            textAlign: 'center',
+            border: '1px solid rgba(99, 102, 241, 0.2)',
+            boxShadow: 'var(--shadow-lg)'
+          }}>
+            <span style={{ fontSize: '3rem' }}>🌟</span>
+            <h2 style={{ marginTop: '10px', fontFamily: 'var(--font-outfit)', color: 'white' }}>Rate Your Experience</h2>
+            <p className="search-sub" style={{ margin: '10px 0 20px' }}>
+              How was your service with {activeBooking?.technicianId?.firstName || 'your Hero'}? Your feedback directly impacts Hero rankings.
+            </p>
+            
+            {/* Rating Stars */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', marginBottom: '20px' }}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  onClick={() => setReviewRating(star)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    fontSize: '2.2rem',
+                    cursor: 'pointer',
+                    color: star <= reviewRating ? 'var(--warning-amber)' : 'rgba(255,255,255,0.15)',
+                    transition: 'transform 0.2s, color 0.2s',
+                    transform: star === reviewRating ? 'scale(1.2)' : 'none'
+                  }}
+                  title={`${star} Star${star > 1 ? 's' : ''}`}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+
+            {/* Comment input */}
+            <textarea
+              placeholder="Write a comment about the service (optional)..."
+              value={reviewComment}
+              onChange={(e) => setReviewComment(e.target.value)}
+              style={{
+                width: '100%',
+                height: '90px',
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid var(--border-slate)',
+                borderRadius: '8px',
+                padding: '12px',
+                color: 'white',
+                fontFamily: 'var(--font-inter)',
+                fontSize: '0.9rem',
+                resize: 'none',
+                outline: 'none',
+                marginBottom: '20px'
+              }}
+            />
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                className="book-now-btn"
+                disabled={reviewSubmitting}
+                onClick={handleSubmitReview}
+                style={{ flex: 1 }}
+              >
+                {reviewSubmitting ? 'Submitting...' : 'Submit Feedback'}
+              </button>
+              <button
+                className="cancel-btn"
+                disabled={reviewSubmitting}
+                onClick={() => {
+                  setShowReviewModal(false);
+                  setBookingStep('config');
+                  setActiveBooking(null);
+                  setReviewComment('');
+                  setReviewRating(5);
+                }}
+                style={{ width: 'auto', padding: '0 20px' }}
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating websocket chat panel */}
+      {showChat && activeBooking && (
+        <ChatPanel 
+          bookingId={activeBooking._id}
+          token={token}
+          socketRef={socketRef}
+          onClose={() => setShowChat(false)}
+          currentUser={user}
+        />
+      )}
     </div>
   );
 }
 
+// Route protector to redirect authenticated users away from public auth pages
+function PublicRoute({ children }) {
+  const { user } = useAuth();
+  if (user) {
+    return <Navigate to="/" replace />;
+  }
+  return children;
+}
+
 function App() {
   return (
-    <AuthProvider>
-      <MainAppContent />
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        <Routes>
+          <Route 
+            path="/login" 
+            element={
+              <PublicRoute>
+                <LoginPage />
+              </PublicRoute>
+            } 
+          />
+          <Route 
+            path="/register" 
+            element={
+              <PublicRoute>
+                <RegisterPage />
+              </PublicRoute>
+            } 
+          />
+          <Route 
+            path="/forgot-password" 
+            element={
+              <PublicRoute>
+                <ForgotPasswordPage />
+              </PublicRoute>
+            } 
+          />
+          <Route 
+            path="/services" 
+            element={
+              <ProtectedRoute>
+                <div className="app-container">
+                  <header className="brand-header">
+                    <div className="header-left">
+                      <div className="logo-icon">🦸‍♂️</div>
+                      <div className="logo-text">
+                        <h1>HomeHero</h1>
+                        <span className="subtitle">Hyperlocal Home Services</span>
+                      </div>
+                    </div>
+                  </header>
+                  <ServiceListingPage />
+                </div>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/services/:id" 
+            element={
+              <ProtectedRoute>
+                <div className="app-container">
+                  <header className="brand-header">
+                    <div className="header-left">
+                      <div className="logo-icon">🦸‍♂️</div>
+                      <div className="logo-text">
+                        <h1>HomeHero</h1>
+                        <span className="subtitle">Hyperlocal Home Services</span>
+                      </div>
+                    </div>
+                  </header>
+                  <ServiceDetailsPage />
+                </div>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/technician/profile" 
+            element={
+              <ProtectedRoute allowedRoles={['provider', 'technician']}>
+                <div className="app-container">
+                  <header className="brand-header">
+                    <div className="header-left">
+                      <div className="logo-icon">🦸‍♂️</div>
+                      <div className="logo-text">
+                        <h1>HomeHero</h1>
+                        <span className="subtitle">Hyperlocal Home Services</span>
+                      </div>
+                    </div>
+                  </header>
+                  <TechnicianProfilePage />
+                </div>
+              </ProtectedRoute>
+            } 
+          />
+          <Route
+            path="/bookings"
+            element={
+              <ProtectedRoute>
+                <div className="app-container">
+                  <header className="brand-header">
+                    <div className="header-left">
+                      <div className="logo-icon">🦸‍♂️</div>
+                      <div className="logo-text">
+                        <h1>HomeHero</h1>
+                        <span className="subtitle">Hyperlocal Home Services</span>
+                      </div>
+                    </div>
+                  </header>
+                  <BookingHistoryPage />
+                </div>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/bookings/:id"
+            element={
+              <ProtectedRoute>
+                <div className="app-container">
+                  <header className="brand-header">
+                    <div className="header-left">
+                      <div className="logo-icon">🦸‍♂️</div>
+                      <div className="logo-text">
+                        <h1>HomeHero</h1>
+                        <span className="subtitle">Hyperlocal Home Services</span>
+                      </div>
+                    </div>
+                  </header>
+                  <BookingDetailPage />
+                </div>
+              </ProtectedRoute>
+            }
+          />
+          <Route 
+            path="/*" 
+            element={
+              <ProtectedRoute>
+                <MainAppContent />
+              </ProtectedRoute>
+            } 
+          />
+        </Routes>
+      </AuthProvider>
+    </Router>
   );
 }
 

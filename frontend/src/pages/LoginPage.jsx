@@ -1,100 +1,127 @@
 import { useState } from 'react';
-import { useAuth } from '../context/useAuth';
-import { api } from '../services/api';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+import useAuth from '../context/useAuth';
+import api from '../services/api';
 
 export function LoginPage() {
   const { login } = useAuth();
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [phone, setPhone] = useState('');
-  const [error, setError] = useState('');
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleSendOtp = async (e) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Retrieve redirects path if coming from a guarded route
+  const from = location.state?.from?.pathname || '/';
+
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (!phone) {
-      setError('Please provide a valid phone number.');
+    if (!email || !password) {
+      setError('Email and password are required.');
       return;
     }
     setError('');
-    setOtpSent(true);
-  };
+    setSuccess('');
+    setLoading(true);
 
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault();
     try {
-      const res = await api.verifyOtp(phone, otpCode);
+      const res = await api.login(email, password);
       if (res.success) {
         login({
-          id: 'cust_849201',
-          firstName: 'Sarah',
-          lastName: 'Chen',
-          email: 'sarah.chen@example.com',
-          phone,
-          role: 'customer'
+          id: res.user.id,
+          firstName: res.user.first_name,
+          lastName: res.user.last_name,
+          email: res.user.email,
+          role: res.user.role
         }, res.token);
+        
+        // Redirect to protected target page
+        navigate(from, { replace: true });
       } else {
-        setError(res.message || 'Verification failed.');
+        setError(res.message || 'Login failed. Invalid credentials.');
       }
     } catch (err) {
-      console.error(err);
-      setError('An error occurred during verification.');
+      setError(err.response?.data?.message || 'Login failed. Please verify your credentials.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="login-page glass-card text-center" style={{ maxWidth: '450px', margin: '40px auto' }}>
-      <h2>HomeHero Security Login</h2>
-      <p className="search-sub">Access your verified hyperlocal home care dashboard.</p>
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4 relative overflow-hidden">
+      {/* Dynamic Blur background circles */}
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-violet-500/10 rounded-full blur-[120px] pointer-events-none" />
 
-      {error && <div className="alert-message warning-alert" style={{ marginTop: '10px' }}>⚠️ {error}</div>}
+      <div className="w-full max-w-md bg-slate-900/60 border border-slate-800 backdrop-blur-xl rounded-2xl p-8 shadow-2xl relative z-10">
+        <div className="text-center mb-8">
+          <div className="text-4xl mb-2">🦸‍♂️</div>
+          <h2 className="text-2xl font-bold text-white tracking-tight font-outfit">HomeHero Security Portal</h2>
+          <p className="text-slate-400 text-sm mt-1">Access your verified hyperlocal home care dashboard.</p>
+        </div>
 
-      {!otpSent ? (
-        <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px', width: '100%' }}>
-          <div className="form-group" style={{ textAlign: 'left' }}>
-            <label>Mobile Number:</label>
-            <input 
-              type="tel" 
-              placeholder="+91 XXXXX XXXXX"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid var(--border-slate)',
-                borderRadius: '8px',
-                padding: '12px',
-                color: 'white',
-                fontSize: '1rem'
-              }}
+        {error && (
+          <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm rounded-lg flex items-center gap-2">
+            <span>⚠️</span> {error}
+          </div>
+        )}
+        {success && (
+          <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm rounded-lg flex items-center gap-2">
+            <span>✓</span> {success}
+          </div>
+        )}
+
+        <form onSubmit={handleLogin} className="space-y-5">
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Email Address</label>
+            <input
+              type="email"
+              placeholder="example@homehero.com"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-slate-800/40 border border-slate-700/60 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white rounded-lg px-4 py-2.5 text-sm outline-none transition"
             />
           </div>
-          <button type="submit" className="book-now-btn">Request OTP Verification</button>
-        </form>
-      ) : (
-        <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px', width: '100%' }}>
-          <div className="form-group" style={{ textAlign: 'left' }}>
-            <label>Enter 6-Digit OTP Code:</label>
-            <input 
-              type="text" 
-              maxLength="6"
-              placeholder="000 000"
-              value={otpCode}
-              onChange={(e) => setOtpCode(e.target.value)}
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid var(--border-slate)',
-                borderRadius: '8px',
-                padding: '12px',
-                color: 'white',
-                fontSize: '1rem',
-                textAlign: 'center',
-                letterSpacing: '5px'
-              }}
+
+          <div>
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">Password</label>
+              <Link to="/forgot-password" className="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition">
+                Forgot Password?
+              </Link>
+            </div>
+            <input
+              type="password"
+              placeholder="••••••••"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-slate-800/40 border border-slate-700/60 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white rounded-lg px-4 py-2.5 text-sm outline-none transition"
             />
           </div>
-          <button type="submit" className="book-now-btn">Verify & Sign In</button>
-          <button type="button" className="cancel-btn" onClick={() => setOtpSent(false)}>Back</button>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-sm font-semibold rounded-lg py-3 mt-6 transition shadow-lg shadow-indigo-600/20 active:scale-[0.98] disabled:opacity-50"
+          >
+            {loading ? 'Signing In...' : 'Sign In to Account'}
+          </button>
+
+          <p className="text-center text-slate-400 text-xs mt-6">
+            Don't have an account?{' '}
+            <Link to="/register" className="text-indigo-400 hover:text-indigo-300 font-semibold transition">
+              Create Account
+            </Link>
+          </p>
         </form>
-      )}
+      </div>
     </div>
   );
 }
+
+export default LoginPage;
