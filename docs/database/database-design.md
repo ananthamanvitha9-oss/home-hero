@@ -398,3 +398,19 @@ Scaling a hyperlocal platform from one city to multiple regions requires partiti
 * **Role-Based Access Control (RBAC)**: Applications connect using least-privilege credentials, restricting database writes to designated application roles.
 * **Continuous Backups**: Configured with Atlas Continuous Backups (PITR - Point-in-Time Recovery), allowing the database to be restored to any second within the past 7 days to mitigate the risk of data loss.
 * **TLS 1.3 Encryption**: All client-database communication is encrypted in transit using TLS 1.3, and data is encrypted at rest using AES-256 keys.
+
+---
+
+## 7. Database-Level Schema Validation (MANDATORY)
+
+To ensure data integrity and prevent corrupted inputs at the database layer (independent of backend application logic), all primary collections enforce strict **MongoDB `$jsonSchema` Validation Rules**.
+
+### 7.1 Key Validation Policies
+* **Data Type Enforcement**: Fields such as geographic coordinates must be verified as GeoJSON points (`coordinates` array with specific longitude/latitude limits).
+* **Strict RegEx Patterns**: Email and phone numbers are validated against strict regex standards (e.g., E.164 phone formats and valid email constructs) before any inserts are authorized.
+* **Enum Constrains**: Key status fields (e.g., roles like `customer`, `technician`, `admin`; and booking states like `searching`, `matched`, `active`, `completed`) are restricted to predefined enum sets.
+
+> [!NOTE]
+> The full, production-ready, machine-readable `$jsonSchema` validation blueprints for all 12 collections are documented in the companion file:  
+> [mongodb-validation-schemas.md](file:///c:/Users/manvi/OneDrive/Desktop/homehero/docs/database/mongodb-validation-schemas.md).
+

@@ -27,21 +27,21 @@ import './App.css';
 
 // Core pricing variables per category (simulating backend config)
 const pricingConfig = {
-  cleaning: { base: 1200, hourly: 400, roomMultiplier: 1.2, petSurcharge: 300 },
-  handyman: { base: 1000, hourly: 300, multiplierComplex: 1.5 },
-  plumbing: { base: 1500, hourly: 450 },
-  electrical: { base: 1200, hourly: 400 }
+  electrician: { base: 400, hourly: 200 },
+  plumber:     { base: 500, hourly: 250 },
+  carpenter:   { base: 600, hourly: 250 },
+  'ac-repair': { base: 800, hourly: 300 }
 };
 
 function MainAppContent() {
-  const { user, token, portalMode, setPortalMode, simpleView } = useAuth();
+  const { user, token, portalMode, setPortalMode, simpleView, logout } = useAuth();
   const location = useLocation();
   
   // Navigation Tabs for Customer
   const [customerTab, setCustomerTab] = useState('home'); // 'home' | 'profile'
   
   // Customer Booking Workflow State
-  const [category, setCategory] = useState('cleaning');
+  const [category, setCategory] = useState('electrician');
   const [bedrooms, setBedrooms] = useState(2);
   const [hours, setHours] = useState(2);
   const [hasPets, setHasPets] = useState(false);
@@ -75,27 +75,22 @@ function MainAppContent() {
   const [showChat, setShowChat] = useState(false);
 
   // Dynamic pricing calculation during render
-  const rates = pricingConfig[category] || { base: 1200, hourly: 400 };
+  const rates = pricingConfig[category] || { base: 400, hourly: 200 };
   let estimatedPrice;
-  if (category === 'cleaning') {
-    estimatedPrice = rates.base + (bedrooms - 1) * rates.hourly * (rates.roomMultiplier || 1.2);
-    if (hasPets) estimatedPrice += (rates.petSurcharge || 300);
-    if (ecoSupplies) estimatedPrice += 200;
-  } else {
-    estimatedPrice = rates.base + (hours - 1) * rates.hourly;
-    if (ecoSupplies) estimatedPrice += 150;
-  }
+  estimatedPrice = rates.base + (hours - 1) * rates.hourly;
+  if (ecoSupplies) estimatedPrice += 150;
   estimatedPrice = Math.round(estimatedPrice);
 
   // Handle preselected service navigation state
   useEffect(() => {
     if (location.state?.preselectedService) {
       const { category: catName } = location.state.preselectedService;
-      const catSlug = catName?.toLowerCase().includes('clean') ? 'cleaning' : 
-                      catName?.toLowerCase().includes('plumb') ? 'plumbing' :
-                      catName?.toLowerCase().includes('electr') ? 'electrical' : 
-                      catName?.toLowerCase().includes('carpent') ? 'handyman' : 'handyman';
-      
+      const name = catName?.toLowerCase() || '';
+      const catSlug = name.includes('electric') ? 'electrician' :
+                      name.includes('plumb')    ? 'plumber' :
+                      name.includes('carpent')  ? 'carpenter' :
+                      name.includes('ac') || name.includes('air') ? 'ac-repair' : 'electrician';
+
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setCategory(catSlug);
       setBookingStep('pricing');
@@ -329,6 +324,29 @@ function MainAppContent() {
             <span className="address-value">Jubilee Hills, Hyderabad</span>
           </div>
           <SimpleViewToggle />
+          <button 
+            onClick={async () => {
+              try {
+                await api.logout();
+              } catch (e) {
+                console.error('Logout error', e);
+              }
+              logout();
+            }}
+            style={{
+              background: 'rgba(239, 68, 68, 0.1)',
+              color: 'var(--alert-red)',
+              border: '1px solid var(--alert-red)',
+              borderRadius: '20px',
+              padding: '8px 16px',
+              cursor: 'pointer',
+              fontWeight: '600',
+              fontSize: '0.85rem',
+              marginLeft: '10px'
+            }}
+          >
+            Logout
+          </button>
         </div>
       </header>
 
@@ -396,12 +414,8 @@ function MainAppContent() {
             ) : bookingStep === 'pricing' ? (
               <BookingPage 
                 category={category}
-                bedrooms={bedrooms}
-                setBedrooms={setBedrooms}
                 hours={hours}
                 setHours={setHours}
-                hasPets={hasPets}
-                setHasPets={setHasPets}
                 ecoSupplies={ecoSupplies}
                 setEcoSupplies={setEcoSupplies}
                 estimatedPrice={estimatedPrice}

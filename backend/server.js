@@ -3,6 +3,13 @@ const http = require('http');
 const app = require('./app');
 const connectDB = require('./src/config/db');
 const { initSocket } = require('./src/config/socket');
+const logger = require('./src/config/logger');
+
+// Handle uncaught exceptions before any server code runs
+process.on('uncaughtException', (err) => {
+  logger.error('[CRITICAL] Uncaught Exception. Shutting down server...', err);
+  process.exit(1);
+});
 
 const PORT = process.env.PORT || 5000;
 
@@ -16,13 +23,15 @@ const server = http.createServer(app);
 initSocket(server);
 
 // Start server
-server.listen(PORT, () => {
-  console.log(`[HomeHero Server] Running on http://localhost:${PORT}`);
-  console.log(`[HomeHero Server] Mode: ${process.env.NODE_ENV || 'development'}`);
+const activeServer = server.listen(PORT, () => {
+  logger.info(`[HomeHero Server] Running on http://localhost:${PORT}`);
+  logger.info(`[HomeHero Server] Mode: ${process.env.NODE_ENV || 'development'}`);
 });
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
-  console.error('[Server Error] Unhandled Rejection:', err.message);
-  // Close server & exit process if critical, or log
+  logger.error('[CRITICAL] Unhandled Rejection. Shutting down server gracefully...', err);
+  activeServer.close(() => {
+    process.exit(1);
+  });
 });

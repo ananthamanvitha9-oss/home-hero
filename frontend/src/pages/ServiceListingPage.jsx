@@ -5,12 +5,11 @@ import api from '../services/api';
 export function ServiceListingPage() {
   const [services, setServices] = useState([]);
   const [categories] = useState([
-    { name: 'All', slug: '' },
-    { name: 'AC Repair', slug: 'ac-repair' },
-    { name: 'Cleaning', slug: 'cleaning' },
-    { name: 'Plumbing', slug: 'plumbing' },
-    { name: 'Electrical', slug: 'electrical' },
-    { name: 'Carpenter', slug: 'carpentry' }
+    { name: 'All',         slug: '' },
+    { name: 'Electrician', slug: 'electrician' },
+    { name: 'Plumber',     slug: 'plumber' },
+    { name: 'Carpenter',   slug: 'carpenter' },
+    { name: 'AC Repair',   slug: 'ac-repair' }
   ]);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [loading, setLoading] = useState(true);
@@ -32,15 +31,16 @@ export function ServiceListingPage() {
         setError('Error loading services catalog. Falling back to local data.');
         // Fallback mock services matching the specification
         const mockServices = [
-          { id: '1', name: 'AC Repair', description: 'Comprehensive cooling checks, gas charging, filter wash, and repair of air conditioning units.', category: 'AC Repair', pricingRules: { basePrice: 800, hourlyRate: 300 } },
-          { id: '2', name: 'Full Home Deep Cleaning', description: 'Deep vacuuming, scrubbing, and sanitizing of all bedrooms, kitchens, and bathrooms.', category: 'Cleaning', pricingRules: { basePrice: 2000, hourlyRate: 500 } },
-          { id: '3', name: 'Plumber', description: 'Standard piping, valve leakage repairs, tap installations, and bathroom drainage resolution.', category: 'Plumbing', pricingRules: { basePrice: 500, hourlyRate: 250 } },
-          { id: '4', name: 'Electrician', description: 'Switchboard wiring, fuse box repairs, short-circuit diagnostics, and home lighting installations.', category: 'Electrical', pricingRules: { basePrice: 400, hourlyRate: 200 } },
-          { id: '5', name: 'Carpenter', description: 'Door hinges tuning, furniture assembly, lock installations, and structural woodwork repairs.', category: 'Carpenter', pricingRules: { basePrice: 600, hourlyRate: 250 } }
+          { id: '1', name: 'Electrician',  description: 'Switchboard wiring, fuse box repairs, short-circuit diagnostics, and home lighting installations.', category: 'Electrician', pricingRules: { basePrice: 400, hourlyRate: 200 } },
+          { id: '2', name: 'Plumber',      description: 'Standard piping, valve leakage repairs, tap installations, and bathroom drainage resolution.',     category: 'Plumber',      pricingRules: { basePrice: 500, hourlyRate: 250 } },
+          { id: '3', name: 'Carpenter',    description: 'Door hinges tuning, furniture assembly, lock installations, and structural woodwork repairs.',      category: 'Carpenter',    pricingRules: { basePrice: 600, hourlyRate: 250 } },
+          { id: '4', name: 'AC Repair',    description: 'Comprehensive cooling checks, gas charging, filter wash, and repair of air conditioning units.',   category: 'AC Repair',    pricingRules: { basePrice: 800, hourlyRate: 300 } }
         ];
         
         if (selectedCategory) {
-          setServices(mockServices.filter(s => s.category.toLowerCase().includes(selectedCategory.substring(0, 4))));
+          setServices(mockServices.filter(s =>
+            s.name.toLowerCase().includes(selectedCategory.replace('-', ' ').substring(0, 5))
+          ));
         } else {
           setServices(mockServices);
         }
@@ -54,13 +54,11 @@ export function ServiceListingPage() {
 
   const getCategoryIcon = (category) => {
     switch (category?.toLowerCase()) {
-      case 'ac repair': return '❄️';
-      case 'cleaning': return '🧹';
-      case 'plumbing': return '🚰';
-      case 'electrical': return '⚡';
-      case 'carpenter':
-      case 'carpentry': return '🪚';
-      default: return '🛠️';
+      case 'electrician':  return '⚡';
+      case 'plumber':      return '🚰';
+      case 'carpenter':    return '🪚';
+      case 'ac repair':    return '❄️';
+      default:             return '🛠️';
     }
   };
 

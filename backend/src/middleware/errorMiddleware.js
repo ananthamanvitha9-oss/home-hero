@@ -1,4 +1,5 @@
 const AppError = require('../core/errors/AppError');
+const logger = require('../config/logger');
 
 const handleCastErrorDB = err => {
   const message = `Invalid ${err.path}: ${err.value}.`;
@@ -41,7 +42,7 @@ const sendErrorProd = (err, res) => {
     });
   } else {
     // Programming or other unknown error: don't leak error details
-    console.error('[CRITICAL ERROR]', err);
+    logger.error('[CRITICAL ERROR] Programming or unknown server error:', err);
     res.status(500).json({
       success: false,
       status: 'error',
@@ -53,6 +54,9 @@ const sendErrorProd = (err, res) => {
 module.exports = (err, req, res, next) => {
   err.statusCode = err.statusCode || 500;
   err.status = err.status || 'error';
+
+  // Log all API errors centrally
+  logger.error(`[API Error] Method: ${req.method} | Path: ${req.originalUrl} | Code: ${err.statusCode} | Message: ${err.message}`, err);
 
   if (process.env.NODE_ENV === 'development') {
     sendErrorDev(err, res);

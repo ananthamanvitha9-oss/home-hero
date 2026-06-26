@@ -5,6 +5,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 // Create Axios Instance
 const axiosInstance = axios.create({
   baseURL: API_URL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -24,16 +25,76 @@ axiosInstance.interceptors.request.use(
   }
 );
 
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 // Response Interceptor for handling token expiration & structured errors
 axiosInstance.interceptors.response.use(
   (response) => response,
-  (error) => {
-    // If unauthorized (401), we clear local auth token and redirect to login
-    if (error.response && error.response.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      // Optional: window.location.href = '/login';
+  async (error) => {
+    const originalRequest = error.config;
+
+    // If unauthorized (401) and we haven't already retried
+    if (error.response && error.response.status === 401 && !originalRequest._retry) {
+      // If we are trying to login, register, verify-otp or refresh itself, don't auto-refresh
+      const url = originalRequest.url || '';
+      if (
+        url.includes('/auth/login') ||
+        url.includes('/auth/register') ||
+        url.includes('/auth/verify-otp') ||
+        url.includes('/auth/refresh')
+      ) {
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return axiosInstance(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const res = await axiosInstance.post('/auth/refresh');
+        const { token } = res.data;
+
+        localStorage.setItem('token', token);
+        originalRequest.headers.Authorization = `Bearer ${token}`;
+
+        processQueue(null, token);
+        return axiosInstance(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        // Refresh token is expired or invalid -> logout user
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        
+        // Force redirect to login page
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
     }
+
     return Promise.reject(error);
   }
 );

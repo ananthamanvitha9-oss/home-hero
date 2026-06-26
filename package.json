@@ -1,0 +1,25 @@
+{
+  "name": "homehero-monorepo",
+  "version": "1.0.0",
+  "description": "Monorepo workspace for HomeHero MERN Stack Hyperlocal Services Platform",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "install:all": "npm install && npm install --workspaces",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "seed": "npm run seed --workspace=backend",
+    "lint": "npm run lint --workspaces",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "prettier": "^3.2.5"
+  },
+  "author": "Co-Founding Team",
+  "license": "ISC"
+}

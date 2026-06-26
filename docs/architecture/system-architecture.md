@@ -456,7 +456,73 @@ As booking volume scales, the architecture is designed to scale horizontally acr
 
 ---
 
-## 13. Project Folder Structure
+## 13. Deployment & CI/CD Architecture
+
+HomeHero's deployment infrastructure is designed for high availability, zero-downtime deployments, and automated testing pipelines. The system is hosted on AWS in the `ap-south-1` (Mumbai) region to ensure low latency for Indian users.
+
+### 13.1 Production Deployment Topology
+
+```mermaid
+graph TD
+    subgraph Public ["AWS Public Subnet"]
+        ALB["Application Load Balancer (ALB)"]
+    end
+
+    subgraph Private ["AWS Private Subnet"]
+        ECS_App["ECS Fargate: Backend Node/Express Containers"]
+        ECS_Socket["ECS Fargate: WebSocket Socket.io Containers"]
+        Redis_ElastiCache[(Amazon ElastiCache Redis Cluster)]
+    end
+
+    subgraph Database_Network ["MongoDB Dedicated VPC"]
+        Mongo_Atlas[(MongoDB Atlas Multi-AZ Cluster)]
+    end
+
+    subgraph Edge ["Edge Services"]
+        CF["Cloudflare DNS / CDN / WAF"]
+        S3["AWS S3 Asset Bucket"]
+        CloudFront["AWS CloudFront CDN"]
+    end
+
+    %% Routing Flow
+    CF --> ALB
+    ALB --> ECS_App
+    ALB --> ECS_Socket
+    ECS_App & ECS_Socket <--> Redis_ElastiCache
+    ECS_App & ECS_Socket <--> Mongo_Atlas
+    S3 <--> CloudFront
+```
+
+### 13.2 CI/CD Pipeline
+Every code integration to the repository follows an automated pipeline triggered by Git events (GitHub Actions):
+
+```
+  DEVELOPER PUSH ---> [GitHub Actions runner]
+                             │
+                             ├─► Run Linters (ESLint, Prettier)
+                             ├─► Run Unit & Integration Tests (Jest)
+                             │
+                             ▼ (If Tests Pass)
+                     [Build Docker Images]
+                             │
+                             ├─► Tag & Push to Amazon ECR (Elastic Container Registry)
+                             │
+                             ▼
+                     [Update ECS Task Definition]
+                             │
+                             ▼
+                     [ECS Fargate Rolling Update Deployment]
+                             │
+                             └─► Zero-Downtime Blue-Green Switch
+```
+
+### 13.3 Environment Configurations
+*   **Development / Staging:** Local sandbox docker-compose environments mirroring production databases on MongoDB Atlas (Dev Cluster).
+*   **Production:** Strict IaC (Infrastructure as Code) provisioning using Terraform to manage the AWS network topology, IAM policies, and Fargate scaling policies.
+
+---
+
+## 14. Project Folder Structure
 
 ```
 homehero/
@@ -486,7 +552,7 @@ homehero/
 
 ---
 
-## 14. Third-Party Integrations
+## 15. Third-Party Integrations
 
 | Integration Service | Platform Module | Purpose |
 | :--- | :--- | :--- |
@@ -497,7 +563,7 @@ homehero/
 
 ---
 
-## 15. Future AI Architecture
+## 16. Future AI Architecture
 
 Integrating AI will allow HomeHero to optimize matching efficiency and quality control as transaction volumes increase:
 

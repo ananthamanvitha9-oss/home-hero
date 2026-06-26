@@ -119,7 +119,142 @@ Authorization: Bearer <jwt_access_token>
 
 ---
 
-### 2.2 Services Module
+### 2.2 Users Module
+
+#### A. Get User Profile
+* **Endpoint Name**: Get Current User Profile
+* **HTTP Method**: `GET`
+* **URL**: `/users/profile`
+* **Purpose**: Fetch details of the currently authenticated customer, technician, or admin.
+* **Authentication Requirement**: Yes (JWT Access Token)
+* **Authorization Requirement**: Open to all registered roles.
+* **Request Body**: None.
+* **Query Parameters**: None.
+* **Path Parameters**: None.
+* **Response Example (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "user": {
+      "id": "651f8a2e3f4e5a6b7c8d9e01",
+      "email": "sarah.chen@example.com",
+      "phone": "+919876543210",
+      "role": "customer",
+      "firstName": "Sarah",
+      "lastName": "Chen",
+      "isVerified": true,
+      "avatarUrl": "https://cdn.homehero.com/avatars/sarah_chen.png"
+    }
+  }
+  ```
+* **Error Responses**:
+  * `401 Unauthorized` (`UNAUTHORIZED`): JWT token missing or expired.
+
+#### B. Update User Profile
+* **Endpoint Name**: Update Profile Metadata
+* **HTTP Method**: `PATCH`
+* **URL**: `/users/profile`
+* **Purpose**: Update first name, last name, or profile avatar URL.
+* **Authentication Requirement**: Yes (JWT Access Token)
+* **Authorization Requirement**: Open to all registered roles.
+* **Validation Rules**:
+  * `firstName`: String (Optional, min 1 character).
+  * `lastName`: String (Optional, min 1 character).
+  * `avatarUrl`: String (Optional, valid URL format).
+* **Request Body**:
+  ```json
+  {
+    "firstName": "Sarah Updated",
+    "avatarUrl": "https://cdn.homehero.com/avatars/sarah_new.png"
+  }
+  ```
+* **Response Example (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Profile updated successfully.",
+    "user": {
+      "id": "651f8a2e3f4e5a6b7c8d9e01",
+      "email": "sarah.chen@example.com",
+      "role": "customer",
+      "firstName": "Sarah Updated",
+      "lastName": "Chen",
+      "avatarUrl": "https://cdn.homehero.com/avatars/sarah_new.png"
+    }
+  }
+  ```
+
+#### C. Get Saved Addresses
+* **Endpoint Name**: List Saved Addresses
+* **HTTP Method**: `GET`
+* **URL**: `/users/addresses`
+* **Purpose**: Retrieve the user's saved addresses for easy booking selection.
+* **Authentication Requirement**: Yes (JWT Access Token)
+* **Authorization Requirement**: Restricted to `customer` and `admin` roles.
+* **Response Example (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "addresses": [
+      {
+        "id": "60d5ec9f8f1b2c3d4e5f6g11",
+        "label": "Home",
+        "street": "Flat 402, Block C, Whitehouse Apts",
+        "area": "Gachibowli",
+        "city": "Hyderabad",
+        "pincode": "500032",
+        "coordinates": {
+          "lat": 17.428100,
+          "lng": 78.384010
+        }
+      }
+    ]
+  }
+  ```
+
+#### D. Create Saved Address
+* **Endpoint Name**: Create Saved Address
+* **HTTP Method**: `POST`
+* **URL**: `/users/addresses`
+* **Purpose**: Add a new address to the user's profile address book.
+* **Authentication Requirement**: Yes (JWT Access Token)
+* **Authorization Requirement**: Restricted to `customer` role.
+* **Validation Rules**:
+  * `label`: String (Required, e.g., `Home`, `Office`, `Parents`).
+  * `street`: String (Required).
+  * `area`: String (Required).
+  * `city`: String (Required).
+  * `pincode`: String (Required, 6-digit regex check).
+  * `lat`/`lng`: Float (Required, coordinate bounds validation).
+* **Request Body**:
+  ```json
+  {
+    "label": "Home",
+    "street": "Flat 402, Block C, Whitehouse Apts",
+    "area": "Gachibowli",
+    "city": "Hyderabad",
+    "pincode": "500032",
+    "lat": 17.428100,
+    "lng": 78.384010
+  }
+  ```
+* **Response Example (210 Created)**:
+  ```json
+  {
+    "success": true,
+    "message": "Address saved successfully.",
+    "address": {
+      "id": "60d5ec9f8f1b2c3d4e5f6g11",
+      "label": "Home",
+      "street": "Flat 402, Block C, Whitehouse Apts",
+      "pincode": "500032"
+    }
+  }
+  ```
+
+---
+
+### 2.3 Services Module
 
 #### A. List Services
 * **Endpoint Name**: Get Services Catalog
@@ -146,9 +281,38 @@ Authorization: Bearer <jwt_access_token>
       }
     ]
   }
-  ```\n```\n\n#### C. List Services by Category\n* **Endpoint Name**: Get Services By Category\n* **HTTP Method**: `GET`\n* **URL**: `/services/category/:slug`\n* **Purpose**: Retrieve all active service offerings for a specific professional category (e.g., electrician, plumber, carpenter, ac-repair).\n* **Authentication Requirement**: None (Public)\n* **Authorization Requirement**: None (Public)\n* **Path Parameters**:\n  * `slug` – Category slug (e.g., `electrician`).\n* **Response Example (200 OK)**:\n```json\n{\n  "success": true,\n  "services": [\n    {\n      "id": "651f8a2e3f4e5a6b7c8d9e04",\n      "name": "Plumber",\n      "description": "Standard piping and leak repair service.",\n      "category": "Plumber",\n      "categorySlug": "plumber",\n      "pricingRules": {\n        "basePrice": 500,\n        "hourlyRate": 250\n      }\n    }\n  ]\n}\n```
+  ```
 
-#### B. Get Service Detail
+#### B. List Services by Category
+* **Endpoint Name**: Get Services By Category
+* **HTTP Method**: `GET`
+* **URL**: `/services/category/:slug`
+* **Purpose**: Retrieve all active service offerings for a specific professional category (e.g., electrician, plumber, carpenter, ac-repair).
+* **Authentication Requirement**: None (Public)
+* **Authorization Requirement**: None (Public)
+* **Path Parameters**:
+  * `slug` – Category slug (e.g., `electrician`).
+* **Response Example (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "services": [
+      {
+        "id": "651f8a2e3f4e5a6b7c8d9e04",
+        "name": "Plumber",
+        "description": "Standard piping and leak repair service.",
+        "category": "Plumber",
+        "categorySlug": "plumber",
+        "pricingRules": {
+          "basePrice": 500,
+          "hourlyRate": 250
+        }
+      }
+    ]
+  }
+  ```
+
+#### C. Get Service Detail
 * **Endpoint Name**: Fetch Single Service
 * **HTTP Method**: `GET`
 * **URL**: `/services/:id`
@@ -179,7 +343,7 @@ Authorization: Bearer <jwt_access_token>
 
 ---
 
-### 2.3 Technicians Module
+### 2.4 Technicians Module
 
 #### A. Search Nearby Technicians
 * **Endpoint Name**: Query Online Technicians
@@ -241,7 +405,7 @@ Authorization: Bearer <jwt_access_token>
 
 ---
 
-### 2.4 Bookings Module
+### 2.5 Bookings Module
 
 #### A. Create Booking
 * **Endpoint Name**: Book a Service Request
@@ -369,7 +533,7 @@ Authorization: Bearer <jwt_access_token>
 
 ---
 
-### 2.5 Payments Module
+### 2.6 Payments Module
 
 #### A. Create Order
 * **Endpoint Name**: Create Razorpay Order hold
@@ -430,7 +594,7 @@ Authorization: Bearer <jwt_access_token>
 
 ---
 
-### 2.6 Reviews Module
+### 2.7 Reviews Module
 
 #### A. Submit Review
 * **Endpoint Name**: Submit Rating and Review
@@ -489,7 +653,7 @@ Authorization: Bearer <jwt_access_token>
 
 ---
 
-### 2.7 Admin Module
+### 2.8 Admin Module
 
 #### A. Admin Dashboard Metrics
 * **Endpoint Name**: Get Stats Overview

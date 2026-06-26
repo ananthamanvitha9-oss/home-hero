@@ -8,10 +8,10 @@ export function HomePage({ currentCategory, onSelectCategory, onNextStep }) {
       
       <div className="category-grid" style={{ marginTop: '15px' }}>
         {[
-          { id: 'cleaning', name: 'Deep Cleaning', icon: '🧹' },
-          { id: 'handyman', name: 'General Handyman', icon: '🔧' },
-          { id: 'plumbing', name: 'Plumbing Service', icon: '🚰' },
-          { id: 'electrical', name: 'Electrical Works', icon: '⚡' }
+          { id: 'electrician', name: 'Electrician', icon: '⚡' },
+          { id: 'plumber', name: 'Plumber', icon: '🚰' },
+          { id: 'carpenter', name: 'Carpenter', icon: '🪚' },
+          { id: 'ac-repair', name: 'AC Repair', icon: '❄️' }
         ].map(cat => (
           <ServiceCard
             key={cat.id}

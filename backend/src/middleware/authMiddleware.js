@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const User = require('../models/userModel');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'homehero_super_secret_jwt_key';
@@ -11,6 +12,19 @@ const protect = async (req, res, next) => {
     try {
       token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(token, JWT_SECRET);
+
+      // Fallback if database is offline
+      const isOffline = mongoose.connection.readyState !== 1;
+      if (isOffline) {
+        const mockDb = require('../config/mockDb');
+        const user = mockDb.findUserById(decoded.id);
+        if (!user) {
+          return res.status(401).json({ success: false, message: 'User not found in system.' });
+        }
+
+        req.user = user;
+        return next();
+      }
 
       // Fetch user from DB and attach to req (excluding password)
       const user = await User.findById(decoded.id).select('-passwordHash');

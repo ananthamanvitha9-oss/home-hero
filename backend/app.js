@@ -1,7 +1,7 @@
 const express = require('express');
-const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const { applySecurity } = require('./src/middleware/securityMiddleware');
 
 // Route imports
 const authRoutes = require('./src/routes/authRoutes');
@@ -17,7 +17,7 @@ const app = express();
 
 // Global Middlewares
 app.use(helmet()); // Secure HTTP headers
-app.use(cors()); // Enable CORS
+applySecurity(app); // Apply CORS, Rate Limiters, and Sanitization
 app.use(morgan('dev')); // Dev logging
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies

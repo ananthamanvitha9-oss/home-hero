@@ -6,6 +6,7 @@ const { validateRegister, validateLogin, validateVerifyOtp } = require('../middl
 router.post('/register', validateRegister, authController.register);
 router.post('/login', validateLogin, authController.login);
 router.post('/verify-otp', validateVerifyOtp, authController.verifyOtp);
+router.post('/refresh', authController.refresh);
 router.post('/logout', authController.logout);
 
 module.exports = router;

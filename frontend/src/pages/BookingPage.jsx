@@ -1,73 +1,60 @@
 export function BookingPage({ 
   category, 
-  bedrooms, 
-  setBedrooms, 
   hours, 
   setHours, 
-  hasPets, 
-  setHasPets, 
   ecoSupplies, 
   setEcoSupplies, 
   estimatedPrice, 
   onSubmitBooking, 
   onBack 
 }) {
+  const categoryMeta = {
+    electrician: { label: 'Electrician',  icon: '⚡', desc: 'Switchboard wiring, fuse repairs & lighting' },
+    plumber:     { label: 'Plumber',      icon: '🚰', desc: 'Pipe repairs, tap installations & drainage' },
+    carpenter:   { label: 'Carpenter',    icon: '🪚', desc: 'Furniture, woodwork & lock installations' },
+    'ac-repair': { label: 'AC Repair',    icon: '❄️', desc: 'Gas charging, filter wash & cooling checks' }
+  };
+  const meta = categoryMeta[category] || { label: 'Service', icon: '🛠️', desc: 'Professional home service' };
+
   return (
     <div className="booking-page grid-layout">
       {/* Left Side: Detail Configurations */}
       <div className="config-form glass-card">
-        <h2>Configure Service Plan</h2>
-        <p className="search-sub">Custom parameters dynamically adjust your flat-rate billing.</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
+          <span style={{ fontSize: '2rem' }}>{meta.icon}</span>
+          <div>
+            <h2 style={{ margin: 0 }}>{meta.label}</h2>
+            <p className="search-sub" style={{ margin: 0, fontSize: '0.82rem' }}>{meta.desc}</p>
+          </div>
+        </div>
+        <hr className="divider" style={{ margin: '16px 0' }} />
+        <p className="search-sub">Select hours needed — pricing adjusts automatically.</p>
 
-        {category === 'cleaning' ? (
-          <div className="options-form" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div className="form-group">
-              <label>Number of Rooms / Bedrooms:</label>
-              <div className="counter-control">
-                <button onClick={() => setBedrooms(Math.max(1, bedrooms - 1))}>-</button>
-                <span className="counter-val">{bedrooms} Rooms</span>
-                <button onClick={() => setBedrooms(Math.min(5, bedrooms + 1))}>+</button>
-              </div>
-            </div>
-            <div className="form-group checkbox-row">
-              <label className="checkbox-container">
-                <input 
-                  type="checkbox" 
-                  checked={hasPets} 
-                  onChange={(e) => setHasPets(e.target.checked)} 
-                />
-                <span className="checkmark"></span>
-                Pets in Home? (+₹300 cleaning charge)
-              </label>
+        <div className="options-form" style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '16px' }}>
+          <div className="form-group">
+            <label>Hours of Work Needed:</label>
+            <div className="counter-control">
+              <button onClick={() => setHours(Math.max(1, hours - 1))}>-</button>
+              <span className="counter-val">{hours} {hours === 1 ? 'Hour' : 'Hours'}</span>
+              <button onClick={() => setHours(Math.min(10, hours + 1))}>+</button>
             </div>
           </div>
-        ) : (
-          <div className="options-form">
-            <div className="form-group">
-              <label>Hours of Work Needed:</label>
-              <div className="counter-control">
-                <button onClick={() => setHours(Math.max(1, hours - 1))}>-</button>
-                <span className="counter-val">{hours} Hours</span>
-                <button onClick={() => setHours(Math.min(10, hours + 1))}>+</button>
-              </div>
-            </div>
-          </div>
-        )}
 
-        <div className="form-group checkbox-row">
-          <label className="checkbox-container">
-            <input 
-              type="checkbox" 
-              checked={ecoSupplies} 
-              onChange={(e) => setEcoSupplies(e.target.checked)} 
-            />
-            <span className="checkmark"></span>
-            Use Premium Eco-Friendly Supplies (+₹200)
-          </label>
+          <div className="form-group checkbox-row">
+            <label className="checkbox-container">
+              <input 
+                type="checkbox" 
+                checked={ecoSupplies} 
+                onChange={(e) => setEcoSupplies(e.target.checked)} 
+              />
+              <span className="checkmark"></span>
+              Use Premium / Branded Spare Parts (+₹150)
+            </label>
+          </div>
         </div>
 
-        <button className="cancel-btn" style={{ marginTop: '10px' }} onClick={onBack}>
-          Back to Categories
+        <button className="cancel-btn" style={{ marginTop: '20px' }} onClick={onBack}>
+          ← Back to Categories
         </button>
       </div>
 
