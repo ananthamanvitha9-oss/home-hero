@@ -13,6 +13,7 @@ import { TechnicianProfilePage } from './pages/TechnicianProfilePage';
 import { TechnicianDashboardPage } from './pages/TechnicianDashboardPage';
 import { HomePage } from './pages/HomePage';
 import { BookingPage } from './pages/BookingPage';
+import { BookingStatusPage } from './pages/BookingStatusPage';
 import { BookingHistoryPage } from './pages/BookingHistoryPage';
 import { BookingDetailPage } from './pages/BookingDetailPage';
 import { TrackingPage } from './pages/TrackingPage';
@@ -43,9 +44,7 @@ function MainAppContent() {
   
   // Customer Booking Workflow State
   const [category, setCategory] = useState('electrician');
-  const [bedrooms, setBedrooms] = useState(2);
   const [hours, setHours] = useState(2);
-  const [hasPets, setHasPets] = useState(false);
   const [ecoSupplies, setEcoSupplies] = useState(false);
   const [bookingStep, setBookingStep] = useState('config'); // 'config' | 'searching' | 'matched'
   const [countdown, setCountdown] = useState(5);
@@ -851,6 +850,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['provider', 'technician']}>
                 <TechnicianDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/book-service"
+            element={
+              <ProtectedRoute>
+                <BookingStatusPage />
               </ProtectedRoute>
             }
           />

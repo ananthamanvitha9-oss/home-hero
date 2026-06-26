@@ -210,6 +210,13 @@ exports.createBooking = async (req, res, next) => {
 
     await newBooking.save();
 
+    // Push notification: Booking Created
+    await sendPushNotification(
+      req.user.id,
+      'Booking Created 🕐',
+      `Your booking for ${service.name} has been created. Booking Code: ${newBooking.bookingCode}`
+    ).catch(err => console.error('[Push Notification]', err.message));
+
     // Notify technician via Socket.io broadcast
     emitSocket('new_job_dispatched', {
       bookingCode: newBooking.bookingCode,
@@ -409,6 +416,27 @@ exports.updateBooking = async (req, res, next) => {
           task.timestamp = new Date();
         });
       }
+
+      // Send notifications for status transitions
+      if (status === 'in_progress') {
+        await sendPushNotification(
+          booking.customerId,
+          'Service Started 🔧',
+          `Your service for booking ${booking.bookingCode} has started.`
+        ).catch(err => console.error('[Push Notification]', err.message));
+      } else if (status === 'completed') {
+        await sendPushNotification(
+          booking.customerId,
+          'Service Completed! 🎉',
+          `Your service for booking ${booking.bookingCode} is complete.`
+        ).catch(err => console.error('[Push Notification]', err.message));
+        // Review reminder
+        await sendPushNotification(
+          booking.customerId,
+          'Share Your Feedback 🌟',
+          `How was your experience? Leave a review for your Hero now.`
+        ).catch(err => console.error('[Push Notification]', err.message));
+      }
     }
 
     // ── Checklist Update ───────────────────────────────────────────────────
@@ -532,6 +560,31 @@ exports.cancelBooking = async (req, res, next) => {
     appendStatusHistory(booking, 'cancelled', req.user.id, reason || '');
 
     await booking.save();
+
+    // Send cancellation notifications
+    if (isCustomer) {
+      if (booking.technicianId) {
+        await sendPushNotification(
+          booking.technicianId,
+          'Booking Cancelled ❌',
+          `Customer cancelled booking ${booking.bookingCode}`
+        ).catch(err => console.error('[Push Notification]', err.message));
+      }
+    } else {
+      // Cancelled by tech or admin
+      await sendPushNotification(
+        booking.customerId,
+        'Booking Cancelled ❌',
+        `Your booking ${booking.bookingCode} has been cancelled.`
+      ).catch(err => console.error('[Push Notification]', err.message));
+      if (booking.technicianId && userId !== booking.technicianId.toString()) {
+        await sendPushNotification(
+          booking.technicianId,
+          'Booking Cancelled ❌',
+          `Booking ${booking.bookingCode} has been cancelled.`
+        ).catch(err => console.error('[Push Notification]', err.message));
+      }
+    }
 
     res.status(200).json({
       success: true,
