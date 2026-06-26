@@ -10,6 +10,7 @@ import { ProtectedRoute } from './components/navigation/ProtectedRoute';
 import { ServiceListingPage } from './pages/ServiceListingPage';
 import { ServiceDetailsPage } from './pages/ServiceDetailsPage';
 import { TechnicianProfilePage } from './pages/TechnicianProfilePage';
+import { TechnicianDashboardPage } from './pages/TechnicianDashboardPage';
 import { HomePage } from './pages/HomePage';
 import { BookingPage } from './pages/BookingPage';
 import { BookingHistoryPage } from './pages/BookingHistoryPage';
@@ -844,6 +845,14 @@ function App() {
                 </div>
               </ProtectedRoute>
             } 
+          />
+          <Route
+            path="/technician/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['provider', 'technician']}>
+                <TechnicianDashboardPage />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/bookings"

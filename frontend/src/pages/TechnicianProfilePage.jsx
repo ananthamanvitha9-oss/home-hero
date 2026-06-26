@@ -17,8 +17,9 @@ export function TechnicianProfilePage() {
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
 
-  const skillOptions = ['electrician', 'plumber', 'carpenter', 'ac repair', 'cleaning', 'handyman'];
+  const skillOptions = ['Electrician', 'Plumber', 'Carpenter', 'AC Repair'];
   const dayOptions = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
 
   useEffect(() => {
     const loadProfile = async () => {
