@@ -268,12 +268,26 @@ exports.getBookings = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const { role } = req.user;
-    const { status, from, to, page = 1, limit = 20 } = req.query;
+    const { status, from, to, page = 1, limit = 20, available } = req.query;
 
     let filter = {};
 
     if (role === 'admin') {
       // Admins see everything
+    } else if ((role === 'provider' || role === 'technician') && available === 'true') {
+      const technician = await Technician.findOne({ userId });
+      const skills = technician ? technician.skills : [];
+      const Service = require('../models/serviceModel');
+      const matchingServices = await Service.find({
+        name: { $in: skills.map(s => new RegExp(`^${s}$`, 'i')) }
+      });
+      const serviceIds = matchingServices.map(s => s._id);
+
+      filter = {
+        status: 'pending',
+        technicianId: null,
+        serviceId: { $in: serviceIds }
+      };
     } else if (role === 'provider' || role === 'technician') {
       filter.technicianId = userId;
     } else {

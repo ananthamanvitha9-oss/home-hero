@@ -318,3 +318,48 @@ exports.logout = async (req, res, next) => {
     next(err);
   }
 };
+
+exports.getProfile = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('-passwordHash');
+    if (!user) {
+      return next(new AppError('User not found.', 404));
+    }
+    res.json({ success: true, user });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.updateProfile = async (req, res, next) => {
+  try {
+    const { firstName, lastName, phone, savedAddresses } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return next(new AppError('User not found.', 404));
+    }
+
+    if (firstName) user.firstName = firstName;
+    if (lastName) user.lastName = lastName;
+    if (phone) user.phone = phone;
+    if (savedAddresses) user.savedAddresses = savedAddresses;
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully.',
+      user: {
+        _id: user._id,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        savedAddresses: user.savedAddresses
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};

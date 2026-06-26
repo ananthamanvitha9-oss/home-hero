@@ -51,7 +51,17 @@ const userSchema = new mongoose.Schema(
     otpExpiry: {
       type: Date,
       default: null
-    }
+    },
+    savedAddresses: [
+      {
+        label: { type: String, required: true }, // e.g., 'Home', 'Office'
+        street: { type: String, required: true },
+        area: { type: String, required: true },
+        city: { type: String, required: true, default: 'Hyderabad' },
+        pincode: { type: String, required: true },
+        isDefault: { type: Boolean, default: false }
+      }
+    ]
   },
   {
     timestamps: true

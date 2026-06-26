@@ -230,6 +230,16 @@ export const api = {
     return res.data;
   },
 
+  getAdminUsers: async (role = '') => {
+    const res = await axiosInstance.get(`/admin/users${role ? `?role=${role}` : ''}`);
+    return res.data;
+  },
+
+  updateUserStatus: async (userId, isVerified) => {
+    const res = await axiosInstance.put(`/admin/users/${userId}/status`, { isVerified });
+    return res.data;
+  },
+
   getPendingHeroes: async () => {
     const res = await axiosInstance.get('/admin/heroes/pending');
     return res.data;
@@ -257,6 +267,26 @@ export const api = {
 
   getBookingMessages: async (bookingId) => {
     const res = await axiosInstance.get(`/bookings/${bookingId}/messages`);
+    return res.data;
+  },
+
+  getUserProfile: async () => {
+    const res = await axiosInstance.get('/auth/profile');
+    return res.data;
+  },
+
+  updateUserProfile: async (profileData) => {
+    const res = await axiosInstance.put('/auth/profile', profileData);
+    return res.data;
+  },
+
+  getAvailableBookings: async () => {
+    const res = await axiosInstance.get('/bookings?available=true');
+    return res.data;
+  },
+
+  respondToBooking: async (bookingId, response, note = '') => {
+    const res = await axiosInstance.post(`/bookings/${bookingId}/technician-response`, { response, note });
     return res.data;
   }
 };

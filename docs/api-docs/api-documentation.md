@@ -1,651 +1,418 @@
-# HomeHero REST API Specification
-**Author:** Principal Backend Architect & API Designer  
-**Version:** 1.7.0  
-**Base URL**: `https://api.homehero.com/api` (or `http://localhost:5000/api`)  
-**Default Content Type**: `application/json`
+# HomeHero REST API Specifications & Documentation
 
-This document defines the REST API endpoints, request/response models, validation rules, authorization requirements, and error codes for the **HomeHero** hyperlocal marketplace application.
+**Author:** Principal Backend Architect, HomeHero Technologies Pvt. Ltd.  
+**Version:** 1.0.0  
+**Date:** June 26, 2026  
+**Base URL:** `http://localhost:5000/api`
 
 ---
 
-## 1. Global Authentication & Security Standards
+## 1. Global Specifications
 
-### 1.1 Headers
-All authenticated endpoints require a JSON Web Token (JWT) sent via the HTTP `Authorization` header:
-```http
-Authorization: Bearer <jwt_access_token>
+### 1.1 Authentication Scheme
+Authentication is handled using stateless **JWT (JSON Web Tokens)**.
+* Clients must include the access token in the `Authorization` header for protected endpoints:
+  ```http
+  Authorization: Bearer <access_token>
+  ```
+* Standard expiration times:
+  * **Access Token:** 15 minutes (`JWT_EXPIRES_IN=15m`)
+  * **Refresh Token:** 7 days (`JWT_REFRESH_EXPIRES_IN=7d`), stored securely via HTTP-Only, SameSite cookies.
+
+### 1.2 Global Response Envelope
+All API responses return a structured JSON envelope.
+
+#### Success Response Envelope (2xx)
+```json
+{
+  "success": true,
+  "data": { ... } // May also contain fields like "token", "user", "bookings", etc. depending on route
+}
 ```
 
-### 1.2 Common Error Response Format
+#### Error Response Envelope (4xx / 5xx)
 ```json
 {
   "success": false,
-  "errorCode": "VALIDATION_FAILED",
-  "message": "One or more input validation parameters failed.",
-  "errors": [
-    {
-      "field": "email",
-      "issue": "Must be a valid email format"
-    }
-  ]
+  "status": "fail", // "fail" for 4xx errors, "error" for 5xx errors
+  "message": "Human-readable error description here."
 }
 ```
 
 ---
 
-## 2. API Endpoint specifications
+## 2. API Endpoints Catalog
 
-### 2.1 Authentication Module
+### 2.1 Authentication & Profile APIs
 
-#### A. Register Account
-* **Endpoint Name**: User/Technician Registration
-* **HTTP Method**: `POST`
-* **URL**: `/auth/register`
-* **Purpose**: Register a new Customer, Technician, or Admin account.
-* **Authentication Requirement**: None (Public)
-* **Authorization Requirement**: None (Public)
-* **Validation Rules**:
-  * `email`: String (Required, valid email format).
-  * `phone`: String (Required, unique, E.164 format).
-  * `password`: String (Required, min 8 characters, at least 1 uppercase, 1 number, 1 special).
-  * `role`: String (Required, enum: `customer`, `technician`, `admin`).
-  * `firstName`: String (Required, min 1 char).
-  * `lastName`: String (Required, min 1 char).
-* **Request Body**:
+#### `POST /auth/register`
+Creates a new customer, technician, or admin account.
+* **Authentication:** None (Public)
+* **Request Header:** `Content-Type: application/json`
+* **Request Body:**
   ```json
   {
-    "email": "sarah.chen@example.com",
+    "email": "priya.sharma@example.com",
     "phone": "+919876543210",
-    "password": "SecurePassword123!",
-    "role": "customer",
-    "firstName": "Sarah",
-    "lastName": "Chen"
+    "password": "SecurePassword123",
+    "role": "customer", // Options: "customer", "technician", "admin"
+    "firstName": "Priya",
+    "lastName": "Sharma"
   }
   ```
-* **Query Parameters**: None.
-* **Path Parameters**: None.
-* **Response Example (201 Created)**:
+* **Response (201 Created):**
   ```json
   {
     "success": true,
-    "message": "Account registered successfully.",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "user": {
-      "id": "651f8a2e3f4e5a6b7c8d9e01",
-      "email": "sarah.chen@example.com",
-      "phone": "+919876543210",
+      "id": "60d5ec4b1f48c34f3b2591a1",
+      "email": "priya.sharma@example.com",
       "role": "customer",
-      "isVerified": false
+      "first_name": "Priya",
+      "last_name": "Sharma",
+      "is_verified": false
     }
   }
   ```
-* **Error Responses**:
-  * `400 Bad Request` (`INVALID_PAYLOAD`): Validation check failed.
-  * `409 Conflict` (`EMAIL_ALREADY_EXISTS`, `PHONE_ALREADY_EXISTS`): Unique credential constraint violation.
-
-#### B. User Login
-* **Endpoint Name**: User Login
-* **HTTP Method**: `POST`
-* **URL**: `/auth/login`
-* **Purpose**: Authenticate using credentials to generate a JWT token.
-* **Authentication Requirement**: None (Public)
-* **Authorization Requirement**: None (Public)
-* **Validation Rules**:
-  * `email`: String (Required).
-  * `password`: String (Required).
-* **Request Body**:
-  ```json
-  {
-    "email": "sarah.chen@example.com",
-    "password": "SecurePassword123!"
-  }
-  ```
-* **Query Parameters**: None.
-* **Path Parameters**: None.
-* **Response Example (200 OK)**:
-  ```json
-  {
-    "success": true,
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "user": {
-      "id": "651f8a2e3f4e5a6b7c8d9e01",
-      "email": "sarah.chen@example.com",
-      "role": "customer",
-      "isVerified": true
-    }
-  }
-  ```
-* **Error Responses**:
-  * `401 Unauthorized` (`INVALID_CREDENTIALS`): Email or password incorrect.
+* **Common Errors:**
+  * `400 Bad Request` - Validation failed (e.g., password too short, invalid email format, missing fields).
+  * `400 Bad Request` - Duplicate email or phone number in database.
 
 ---
 
-### 2.2 Users Module
+#### `POST /auth/login`
+Authenticates user credentials and sets an HTTP-Only Refresh Token cookie.
+* **Authentication:** None (Public)
+* **Request Body:**
+  ```json
+  {
+    "email": "priya.sharma@example.com",
+    "password": "SecurePassword123"
+  }
+  ```
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": {
+      "id": "60d5ec4b1f48c34f3b2591a1",
+      "email": "priya.sharma@example.com",
+      "role": "customer",
+      "first_name": "Priya",
+      "last_name": "Sharma",
+      "is_verified": true
+    }
+  }
+  ```
+* **Common Errors:**
+  * `401 Unauthorized` - Incorrect email or password.
+  * `400 Bad Request` - Missing email or password fields.
 
-#### A. Get User Profile
-* **Endpoint Name**: Get Current User Profile
-* **HTTP Method**: `GET`
-* **URL**: `/users/profile`
-* **Purpose**: Fetch details of the currently authenticated customer, technician, or admin.
-* **Authentication Requirement**: Yes (JWT Access Token)
-* **Authorization Requirement**: Open to all registered roles.
-* **Request Body**: None.
-* **Query Parameters**: None.
-* **Path Parameters**: None.
-* **Response Example (200 OK)**:
+---
+
+#### `POST /auth/verify-otp`
+Verifies registration or transaction OTP.
+* **Authentication:** None (Public)
+* **Request Body:**
+  ```json
+  {
+    "phone": "+919876543210",
+    "otp_code": "123456"
+  }
+  ```
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "message": "OTP verified successfully. User is now verified."
+  }
+  ```
+* **Common Errors:**
+  * `400 Bad Request` - Invalid OTP code or expired OTP.
+  * `404 Not Found` - User with phone number not found.
+
+---
+
+#### `POST /auth/refresh`
+Generates a new short-lived access token using the HTTP-only refresh cookie.
+* **Authentication:** Refresh Token Cookie required.
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "token": "new_access_token_here..."
+  }
+  ```
+* **Common Errors:**
+  * `401 Unauthorized` - Refresh token missing, invalid, or expired.
+
+---
+
+#### `POST /auth/logout`
+Logs user out by clearing the refresh token cookie.
+* **Authentication:** None (Public)
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "message": "Logged out successfully"
+  }
+  ```
+
+---
+
+#### `GET /auth/profile`
+Fetches user details and saved address book coordinates.
+* **Authentication:** JWT Bearer (Protected)
+* **Response (200 OK):**
   ```json
   {
     "success": true,
     "user": {
-      "id": "651f8a2e3f4e5a6b7c8d9e01",
-      "email": "sarah.chen@example.com",
+      "id": "60d5ec4b1f48c34f3b2591a1",
+      "email": "priya.sharma@example.com",
       "phone": "+919876543210",
       "role": "customer",
-      "firstName": "Sarah",
-      "lastName": "Chen",
+      "firstName": "Priya",
+      "lastName": "Sharma",
       "isVerified": true,
-      "avatarUrl": "https://cdn.homehero.com/avatars/sarah_chen.png"
-    }
-  }
-  ```
-* **Error Responses**:
-  * `401 Unauthorized` (`UNAUTHORIZED`): JWT token missing or expired.
-
-#### B. Update User Profile
-* **Endpoint Name**: Update Profile Metadata
-* **HTTP Method**: `PATCH`
-* **URL**: `/users/profile`
-* **Purpose**: Update first name, last name, or profile avatar URL.
-* **Authentication Requirement**: Yes (JWT Access Token)
-* **Authorization Requirement**: Open to all registered roles.
-* **Validation Rules**:
-  * `firstName`: String (Optional, min 1 character).
-  * `lastName`: String (Optional, min 1 character).
-  * `avatarUrl`: String (Optional, valid URL format).
-* **Request Body**:
-  ```json
-  {
-    "firstName": "Sarah Updated",
-    "avatarUrl": "https://cdn.homehero.com/avatars/sarah_new.png"
-  }
-  ```
-* **Response Example (200 OK)**:
-  ```json
-  {
-    "success": true,
-    "message": "Profile updated successfully.",
-    "user": {
-      "id": "651f8a2e3f4e5a6b7c8d9e01",
-      "email": "sarah.chen@example.com",
-      "role": "customer",
-      "firstName": "Sarah Updated",
-      "lastName": "Chen",
-      "avatarUrl": "https://cdn.homehero.com/avatars/sarah_new.png"
+      "savedAddresses": [
+        {
+          "label": "Home",
+          "street": "Flat 402, Oakwood Towers",
+          "area": "Jubilee Hills",
+          "city": "Hyderabad",
+          "pincode": "500081",
+          "isDefault": true
+        }
+      ]
     }
   }
   ```
 
-#### C. Get Saved Addresses
-* **Endpoint Name**: List Saved Addresses
-* **HTTP Method**: `GET`
-* **URL**: `/users/addresses`
-* **Purpose**: Retrieve the user's saved addresses for easy booking selection.
-* **Authentication Requirement**: Yes (JWT Access Token)
-* **Authorization Requirement**: Restricted to `customer` and `admin` roles.
-* **Response Example (200 OK)**:
+---
+
+#### `PUT /auth/profile`
+Updates profile information or adds/removes addresses.
+* **Authentication:** JWT Bearer (Protected)
+* **Request Body:**
   ```json
   {
-    "success": true,
-    "addresses": [
+    "firstName": "Priyanka",
+    "lastName": "Sharma",
+    "savedAddresses": [
       {
-        "id": "60d5ec9f8f1b2c3d4e5f6g11",
         "label": "Home",
-        "street": "Flat 402, Block C, Whitehouse Apts",
-        "area": "Gachibowli",
+        "street": "Flat 402, Oakwood Towers",
+        "area": "Jubilee Hills",
         "city": "Hyderabad",
-        "pincode": "500032",
-        "coordinates": {
-          "lat": 17.428100,
-          "lng": 78.384010
-        }
+        "pincode": "500081",
+        "isDefault": true
+      },
+      {
+        "label": "Office",
+        "street": "10th Floor, Building 12C, Mindspace",
+        "area": "Madhapur",
+        "city": "Hyderabad",
+        "pincode": "500081",
+        "isDefault": false
       }
     ]
   }
   ```
-
-#### D. Create Saved Address
-* **Endpoint Name**: Create Saved Address
-* **HTTP Method**: `POST`
-* **URL**: `/users/addresses`
-* **Purpose**: Add a new address to the user's profile address book.
-* **Authentication Requirement**: Yes (JWT Access Token)
-* **Authorization Requirement**: Restricted to `customer` role.
-* **Validation Rules**:
-  * `label`: String (Required, e.g., `Home`, `Office`, `Parents`).
-  * `street`: String (Required).
-  * `area`: String (Required).
-  * `city`: String (Required).
-  * `pincode`: String (Required, 6-digit regex check).
-  * `lat`/`lng`: Float (Required, coordinate bounds validation).
-* **Request Body**:
-  ```json
-  {
-    "label": "Home",
-    "street": "Flat 402, Block C, Whitehouse Apts",
-    "area": "Gachibowli",
-    "city": "Hyderabad",
-    "pincode": "500032",
-    "lat": 17.428100,
-    "lng": 78.384010
-  }
-  ```
-* **Response Example (210 Created)**:
+* **Response (200 OK):**
   ```json
   {
     "success": true,
-    "message": "Address saved successfully.",
-    "address": {
-      "id": "60d5ec9f8f1b2c3d4e5f6g11",
-      "label": "Home",
-      "street": "Flat 402, Block C, Whitehouse Apts",
-      "pincode": "500032"
-    }
+    "user": { ... updated user profile object ... }
   }
   ```
 
 ---
 
-### 2.3 Services Module
+### 2.2 Notification APIs
 
-#### A. List Services
-* **Endpoint Name**: Get Services Catalog
-* **HTTP Method**: `GET`
-* **URL**: `/services`
-* **Purpose**: Retrieve all active service offerings.
-* **Authentication Requirement**: None (Public)
-* **Authorization Requirement**: None (Public)
-* **Request Body**: None.
-* **Query Parameters**: None.
-* **Path Parameters**: None.
-* **Response Example (200 OK)**:
+#### `GET /notifications`
+Retrieves push notifications triggered for the authenticated user.
+* **Authentication:** JWT Bearer (Protected)
+* **Response (200 OK):**
   ```json
   {
     "success": true,
-    "services": [
+    "notifications": [
       {
-        "id": "651f8a2e3f4e5a6b7c8d9e04",
-        "name": "Plumber",
-        "pricingRules": {
-          "basePrice": 500,
-          "hourlyRate": 250
-        }
+        "_id": "60d5ec4b1f48c34f3b259211",
+        "title": "Booking Assigned!",
+        "body": "AC technician Rajesh Kumar has accepted your booking code HH-2026-9831.",
+        "isRead": false,
+        "createdAt": "2026-06-26T10:05:01.000Z"
       }
     ]
   }
   ```
-
-#### B. List Services by Category
-* **Endpoint Name**: Get Services By Category
-* **HTTP Method**: `GET`
-* **URL**: `/services/category/:slug`
-* **Purpose**: Retrieve all active service offerings for a specific professional category (e.g., electrician, plumber, carpenter, ac-repair).
-* **Authentication Requirement**: None (Public)
-* **Authorization Requirement**: None (Public)
-* **Path Parameters**:
-  * `slug` – Category slug (e.g., `electrician`).
-* **Response Example (200 OK)**:
-  ```json
-  {
-    "success": true,
-    "services": [
-      {
-        "id": "651f8a2e3f4e5a6b7c8d9e04",
-        "name": "Plumber",
-        "description": "Standard piping and leak repair service.",
-        "category": "Plumber",
-        "categorySlug": "plumber",
-        "pricingRules": {
-          "basePrice": 500,
-          "hourlyRate": 250
-        }
-      }
-    ]
-  }
-  ```
-
-#### C. Get Service Detail
-* **Endpoint Name**: Fetch Single Service
-* **HTTP Method**: `GET`
-* **URL**: `/services/:id`
-* **Purpose**: Retrieve details for a specific service item.
-* **Authentication Requirement**: None (Public)
-* **Authorization Requirement**: None (Public)
-* **Request Body**: None.
-* **Query Parameters**: None.
-* **Path Parameters**:
-  * `id`: String (Required, service ObjectId).
-* **Response Example (200 OK)**:
-  ```json
-  {
-    "success": true,
-    "service": {
-      "id": "651f8a2e3f4e5a6b7c8d9e04",
-      "name": "Plumber",
-      "description": "Standard piping and leak repair service.",
-      "pricingRules": {
-        "basePrice": 500,
-        "hourlyRate": 250
-      }
-    }
-  }
-  ```
-* **Error Responses**:
-  * `404 Not Found` (`SERVICE_NOT_FOUND`): Service ID does not exist.
 
 ---
 
-### 2.4 Technicians Module
-
-#### A. Search Nearby Technicians
-* **Endpoint Name**: Query Online Technicians
-* **HTTP Method**: `GET`
-* **URL**: `/technicians`
-* **Purpose**: Locate active online technicians sorted by distance.
-* **Authentication Requirement**: Yes (JWT Access Token)
-* **Authorization Requirement**: Restricted to `customer` and `admin` roles.
-* **Request Body**: None.
-* **Query Parameters**:
-  * `lat`: Float (Required, Latitude).
-  * `lng`: Float (Required, Longitude).
-  * `skill`: String (Required, e.g. `Plumber`).
-* **Path Parameters**: None.
-* **Response Example (200 OK)**:
+#### `PUT /notifications/:id/read`
+Marks a specific notification as read.
+* **Authentication:** JWT Bearer (Protected)
+* **Response (200 OK):**
   ```json
   {
     "success": true,
-    "results": [
+    "message": "Notification marked as read."
+  }
+  ```
+
+---
+
+### 2.3 Technician APIs
+
+#### `GET /technicians`
+Searches available nearby technicians for a booking based on geospatial coordinates.
+* **Authentication:** JWT Bearer (Protected). Roles allowed: `customer`, `admin`.
+* **Query Parameters:**
+  * `lat` (required) - Latitude (e.g. `17.426210`)
+  * `lng` (required) - Longitude (e.g. `78.382021`)
+  * `category` (required) - Service vertical (e.g., `AC Repair`, `Electrician`)
+  * `radius` (optional) - Maximum search distance in KM (default: `15`)
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "technicians": [
       {
-        "id": "651f8a2e3f4e5a6b7c8d9e02",
-        "name": "Suresh Kumar",
-        "distanceMeter": 450.5,
-        "rating": 4.9,
-        "skills": ["Plumber"]
+        "id": "60d5ec4b1f48c34f3b2591b1",
+        "fullName": "Rajesh Kumar",
+        "phone": "+918765432109",
+        "serviceCategory": "AC Repair",
+        "rating": 4.88,
+        "experienceYears": 6,
+        "isOnline": true,
+        "distanceKm": 1.4
       }
     ]
   }
   ```
-* **Error Responses**:
-  * `400 Bad Request` (`MISSING_PARAMS`): Required coordinates are missing.
 
-#### B. Get Technician Profile Details
-* **Endpoint Name**: Fetch Single Technician
-* **HTTP Method**: `GET`
-* **URL**: `/technicians/:id`
-* **Purpose**: Retrieve a technician's profile details.
-* **Authentication Requirement**: Yes (JWT Access Token)
-* **Authorization Requirement**: Open to all authenticated users.
-* **Request Body**: None.
-* **Query Parameters**: None.
-* **Path Parameters**:
-  * `id`: String (Required, Technician ObjectId).
-* **Response Example (200 OK)**:
+---
+
+#### `GET /technicians/:id`
+Fetches the public profile of a technician (for customer review panels).
+* **Authentication:** JWT Bearer (Protected)
+* **Response (200 OK):**
   ```json
   {
     "success": true,
     "technician": {
-      "id": "651f8a2e3f4e5a6b7c8d9e02",
-      "name": "Suresh Kumar",
-      "skills": ["Plumber"],
-      "rating": 4.9,
-      "isOnline": true
+      "id": "60d5ec4b1f48c34f3b2591b1",
+      "fullName": "Rajesh Kumar",
+      "profilePhoto": "https://assets.homehero.in/avatars/hero_rajesh.webp",
+      "serviceCategory": "AC Repair",
+      "rating": 4.88,
+      "experienceYears": 6,
+      "skills": ["AC Installation", "Gas Refilling", "Split AC Servicing"],
+      "bio": "Experienced AC technician certified by Daikin."
     }
   }
   ```
-* **Error Responses**:
-  * `404 Not Found` (`TECHNICIAN_NOT_FOUND`): Technician profile not found.
 
 ---
 
-### 2.5 Bookings Module
-
-#### A. Create Booking
-* **Endpoint Name**: Book a Service Request
-* **HTTP Method**: `POST`
-* **URL**: `/bookings`
-* **Purpose**: Register a service booking and trigger matchmaking.
-* **Authentication Requirement**: Yes (JWT Access Token)
-* **Authorization Requirement**: Restricted to `customer` role.
-* **Validation Rules**:
-  * `serviceId`: String (Required).
-  * `scheduledTime`: Date (Required, ISO8601).
-  * `street`: String (Required).
-  * `city`: String (Required).
-  * `pincode`: String (Required, 6 digits).
-  * `lat`/`lng`: Float (Required).
-  * `totalAmount`: Float (Required).
-* **Request Body**:
+#### `POST /technicians/status`
+Toggles online/offline status and updates live tracking coordinates.
+* **Authentication:** JWT Bearer (Protected). Roles allowed: `provider`, `technician`.
+* **Request Body:**
   ```json
   {
-    "serviceId": "651f8a2e3f4e5a6b7c8d9e04",
-    "scheduledTime": "2026-06-20T14:00:00.000Z",
-    "street": "Flat 202, Sector 4, HSR Layout",
-    "city": "Bengaluru",
-    "pincode": "560102",
-    "lat": 12.910382,
-    "lng": 77.641201,
-    "totalAmount": 750.00
+    "isOnline": true,
+    "lat": 17.4483,
+    "lng": 78.3489
   }
   ```
-* **Query Parameters**: None.
-* **Path Parameters**: None.
-* **Response Example (201 Created)**:
+* **Response (200 OK):**
   ```json
   {
     "success": true,
-    "message": "Booking created. Searching for available technicians.",
-    "booking": {
-      "id": "651f8a2e3f4e5a6b7c8d9e05",
-      "bookingCode": "BKG-20261109",
-      "status": "searching"
-    }
-  }
-  ```
-
-#### B. Fetch Booking Details
-* **Endpoint Name**: Get Booking Details
-* **HTTP Method**: `GET`
-* **URL**: `/bookings/:id`
-* **Purpose**: Retrieve details for a specific booking.
-* **Authentication Requirement**: Yes (JWT Access Token)
-* **Authorization Requirement**: Restricted to the associated Customer, Technician, or an Admin.
-* **Request Body**: None.
-* **Query Parameters**: None.
-* **Path Parameters**:
-  * `id`: String (Required, Booking ObjectId).
-* **Response Example (200 OK)**:
-  ```json
-  {
-    "success": true,
-    "booking": {
-      "id": "651f8a2e3f4e5a6b7c8d9e05",
-      "bookingCode": "BKG-20261109",
-      "status": "active",
-      "scheduledTime": "2026-06-20T14:00:00.000Z",
-      "address": {
-        "street": "Flat 202, Sector 4, HSR Layout",
-        "city": "Bengaluru",
-        "pincode": "560102"
+    "status": {
+      "isOnline": true,
+      "availabilityStatus": "available",
+      "currentLocation": {
+        "type": "Point",
+        "coordinates": [78.3489, 17.4483]
       }
     }
   }
   ```
-* **Error Responses**:
-  * `403 Forbidden` (`ACCESS_DENIED`): User is not a party to this booking.
-  * `404 Not Found` (`BOOKING_NOT_FOUND`): Booking does not exist.
 
-#### C. Update Booking Status
-* **Endpoint Name**: Modify Booking
-* **HTTP Method**: `PUT`
-* **URL**: `/bookings/:id`
-* **Purpose**: Update a booking's status or checklist details.
-* **Authentication Requirement**: Yes (JWT Access Token)
-* **Authorization Requirement**: Associated Customer (for cancellations) or Technician (for status changes).
-* **Validation Rules**:
-  * `status`: String (Optional, enum: `en_route`, `active`, `completed`, `cancelled`).
-* **Request Body**:
-  ```json
-  {
-    "status": "active"
-  }
-  ```
-* **Query Parameters**: None.
-* **Path Parameters**:
-  * `id`: String (Required, Booking ObjectId).
-* **Response Example (200 OK)**:
+---
+
+#### `GET /technicians/profile`
+Retrieves own professional profile details for a logged-in technician.
+* **Authentication:** JWT Bearer (Protected). Roles allowed: `provider`, `technician`.
+* **Response (200 OK):**
   ```json
   {
     "success": true,
-    "message": "Booking updated successfully.",
-    "booking": {
-      "id": "651f8a2e3f4e5a6b7c8d9e05",
-      "status": "active"
+    "technician": {
+      "id": "60d5ec4b1f48c34f3b2591b1",
+      "fullName": "Rajesh Kumar",
+      "serviceCategory": "AC Repair",
+      "wallet": {
+        "balance": 1850
+      },
+      "verification": {
+        "status": "verified",
+        "backgroundCheckStatus": "passed"
+      }
     }
   }
   ```
 
-#### D. Delete Booking
-* **Endpoint Name**: Cancel/Delete Booking
-* **HTTP Method**: `DELETE`
-* **URL**: `/bookings/:id`
-* **Purpose**: Remove a pending or unassigned booking request from the queue.
-* **Authentication Requirement**: Yes (JWT Access Token)
-* **Authorization Requirement**: Restricted to the associated Customer or an Admin.
-* **Request Body**: None.
-* **Query Parameters**: None.
-* **Path Parameters**:
-  * `id`: String (Required, Booking ObjectId).
-* **Response Example (200 OK)**:
+---
+
+#### `PUT /technicians/profile`
+Updates professional details for the logged-in technician.
+* **Authentication:** JWT Bearer (Protected). Roles allowed: `provider`, `technician`.
+* **Request Body:**
+  ```json
+  {
+    "skills": ["Split AC Servicing", "Window AC Cleaning", "Gas Charging"],
+    "bio": "Certified by Daikin & Voltas with 6+ years experience.",
+    "serviceRadiusKm": 10
+  }
+  ```
+* **Response (200 OK):**
   ```json
   {
     "success": true,
-    "message": "Booking cancelled and deleted successfully."
+    "technician": { ... updated technician object ... }
   }
   ```
 
 ---
 
-### 2.6 Payments Module
+### 2.4 Service Catalog APIs
 
-#### A. Create Order
-* **Endpoint Name**: Create Razorpay Order hold
-* **HTTP Method**: `POST`
-* **URL**: `/payments/create-order`
-* **Purpose**: Create a Razorpay Order ID to initiate the payment hold on checkout.
-* **Authentication Requirement**: Yes (JWT Access Token)
-* **Authorization Requirement**: Restricted to `customer` role.
-* **Validation Rules**:
-  * `bookingId`: String (Required, valid booking ID).
-* **Request Body**:
-  ```json
-  {
-    "bookingId": "651f8a2e3f4e5a6b7c8d9e05"
-  }
-  ```
-* **Query Parameters**: None.
-* **Path Parameters**: None.
-* **Response Example (200 OK)**:
+#### `GET /services`
+Lists all active services.
+* **Authentication:** None (Public)
+* **Response (200 OK):**
   ```json
   {
     "success": true,
-    "orderId": "order_PK8490aBcd10fd",
-    "amount": 75000,
-    "currency": "INR",
-    "key": "rzp_live_abcdef123456"
-  }
-  ```
-
-#### B. Verify Payment
-* **Endpoint Name**: Verify Payment
-* **HTTP Method**: `POST`
-* **URL**: `/payments/verify`
-* **Purpose**: Cryptographically verify the transaction payment signature.
-* **Authentication Requirement**: None (Webhook/Callback verification)
-* **Authorization Requirement**: None
-* **Validation Rules**:
-  * `razorpay_order_id`: String (Required).
-  * `razorpay_payment_id`: String (Required).
-  * `razorpay_signature`: String (Required).
-* **Request Body**:
-  ```json
-  {
-    "razorpay_order_id": "order_PK8490aBcd10fd",
-    "razorpay_payment_id": "pay_PK8529f3d6a2e4",
-    "razorpay_signature": "4fa8d9e18b82c3f4e5a6b7c8d9e01f..."
-  }
-  ```
-* **Query Parameters**: None.
-* **Path Parameters**: None.
-* **Response Example (200 OK)**:
-  ```json
-  {
-    "success": true,
-    "message": "Payment signature verified. Escrow held successfully."
-  }
-  ```
-
----
-
-### 2.7 Reviews Module
-
-#### A. Submit Review
-* **Endpoint Name**: Submit Rating and Review
-* **HTTP Method**: `POST`
-* **URL**: `/reviews`
-* **Purpose**: Submit a rating and review for a completed service.
-* **Authentication Requirement**: Yes (JWT Access Token)
-* **Authorization Requirement**: Restricted to the Customer who placed the booking.
-* **Validation Rules**:
-  * `bookingId`: String (Required).
-  * `rating`: Integer (Required, range 1 to 5).
-  * `comment`: String (Required, max 1000 characters).
-* **Request Body**:
-  ```json
-  {
-    "bookingId": "651f8a2e3f4e5a6b7c8d9e05",
-    "rating": 5,
-    "comment": "Fast and clean work."
-  }
-  ```
-* **Query Parameters**: None.
-* **Path Parameters**: None.
-* **Response Example (201 Created)**:
-  ```json
-  {
-    "success": true,
-    "message": "Review registered successfully."
-  }
-  ```
-
-#### B. Get Technician Reviews
-* **Endpoint Name**: List Reviews
-* **HTTP Method**: `GET`
-* **URL**: `/reviews/:technicianId`
-* **Purpose**: Fetch all reviews submitted for a specific technician.
-* **Authentication Requirement**: None
-* **Authorization Requirement**: None
-* **Request Body**: None.
-* **Query Parameters**: None.
-* **Path Parameters**:
-  * `technicianId`: String (Required, Technician userId).
-* **Response Example (200 OK)**:
-  ```json
-  {
-    "success": true,
-    "averageRating": 4.85,
-    "reviews": [
+    "services": [
       {
-        "rating": 5,
-        "comment": "Fast and clean work.",
-        "createdAt": "2026-06-17T12:00:00.000Z"
+        "_id": "60d5ec4b1f48c34f3b2591c0",
+        "name": "Split AC Deep Cleaning",
+        "categoryId": "60d5ec4b1f48c34f3b2591a5",
+        "description": "Jet wash servicing for indoor & outdoor units.",
+        "pricingRules": {
+          "basePrice": 499,
+          "hourlyRate": 150
+        }
       }
     ]
   }
@@ -653,79 +420,602 @@ Authorization: Bearer <jwt_access_token>
 
 ---
 
-### 2.8 Admin Module
-
-#### A. Admin Dashboard Metrics
-* **Endpoint Name**: Get Stats Overview
-* **HTTP Method**: `GET`
-* **URL**: `/admin/dashboard`
-* **Purpose**: Retrieve system performance and revenue metrics.
-* **Authentication Requirement**: Yes (JWT Access Token)
-* **Authorization Requirement**: Restricted to `admin` role.
-* **Request Body**: None.
-* **Query Parameters**: None.
-* **Path Parameters**: None.
-* **Response Example (200 OK)**:
+#### `GET /services/category/:slug`
+Retrieves services associated with a specific category slug.
+* **Authentication:** None (Public)
+* **Response (200 OK):**
   ```json
   {
     "success": true,
-    "metrics": {
-      "totalUsers": 12050,
-      "verifiedHeroes": 340,
-      "activeJobs": 48,
-      "commissionsEarned": 482910
+    "categoryName": "AC Repair & Service",
+    "services": [ ... filtered services list ... ]
+  }
+  ```
+
+---
+
+#### `GET /services/:id`
+Retrieves the details of a single service.
+* **Authentication:** None (Public)
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "service": {
+      "_id": "60d5ec4b1f48c34f3b2591c0",
+      "name": "Split AC Deep Cleaning",
+      "pricingRules": {
+        "basePrice": 499,
+        "hourlyRate": 150
+      }
     }
   }
   ```
 
-#### B. List Users Audit
-* **Endpoint Name**: List Users
-* **HTTP Method**: `GET`
-* **URL**: `/admin/users`
-* **Purpose**: Audit and list registered platform user profiles.
-* **Authentication Requirement**: Yes (JWT Access Token)
-* **Authorization Requirement**: Restricted to `admin` role.
-* **Request Body**: None.
-* **Query Parameters**:
-  * `role`: String (Optional, e.g. `customer` or `technician`).
-* **Path Parameters**: None.
-* **Response Example (200 OK)**:
+---
+
+### 2.5 Booking APIs
+
+#### `POST /bookings/estimate`
+Calculates pricing estimates based on base rate, duration, and time-based surge factors.
+* **Authentication:** None (Public)
+* **Request Body:**
+  ```json
+  {
+    "category": "AC Repair",
+    "hoursEstimated": 2,
+    "scheduledTime": "2026-06-26T22:00:00.000Z" // Late-night triggers nightSurge
+  }
+  ```
+* **Response (200 OK):**
   ```json
   {
     "success": true,
-    "users": [
-      {
-        "id": "651f8a2e3f4e5a6b7c8d9e01",
-        "email": "sarah.chen@example.com",
-        "role": "customer",
-        "createdAt": "2026-06-17T10:00:00.000Z"
-      }
-    ]
+    "estimate": {
+      "basePrice": 499,
+      "hourlyRate": 150,
+      "hoursEstimated": 2,
+      "surgeApplied": 100, // Night shift surcharge
+      "subtotal": 899,
+      "discount": 0,
+      "tax": 162,
+      "totalAmount": 1061
+    }
   }
   ```
 
-#### C. List Bookings Audit
-* **Endpoint Name**: List Bookings
-* **HTTP Method**: `GET`
-* **URL**: `/admin/bookings`
-* **Purpose**: Audit and list platform bookings.
-* **Authentication Requirement**: Yes (JWT Access Token)
-* **Authorization Requirement**: Restricted to `admin` role.
-* **Request Body**: None.
-* **Query Parameters**:
-  * `status`: String (Optional, filter by status).
-* **Path Parameters**: None.
-* **Response Example (200 OK)**:
+---
+
+#### `POST /bookings`
+Creates a service booking. Initiates the Socket.io matching sequence.
+* **Authentication:** JWT Bearer (Protected). Roles allowed: `customer`, `admin`.
+* **Request Body:**
+  ```json
+  {
+    "serviceId": "60d5ec4b1f48c34f3b2591c0",
+    "scheduledTime": "2026-06-27T10:30:00.000Z",
+    "address": {
+      "street": "Flat 402, Oakwood Towers",
+      "area": "Jubilee Hills",
+      "city": "Hyderabad",
+      "pincode": "500081"
+    },
+    "coordinates": {
+      "lat": 17.4321,
+      "lng": 78.3824
+    },
+    "totalAmount": 649,
+    "notes": "AC cooling is weak."
+  }
+  ```
+* **Response (201 Created):**
+  ```json
+  {
+    "success": true,
+    "booking": {
+      "id": "60d5ec4b1f48c34f3b2591d1",
+      "bookingCode": "HH-2026-9831",
+      "status": "pending",
+      "billing": {
+        "totalAmount": 649,
+        "platformCommission": 97,
+        "netToHero": 534,
+        "isPaid": false
+      }
+    }
+  }
+  ```
+
+---
+
+#### `GET /bookings`
+Returns a list of bookings for the logged-in user.
+* **Authentication:** JWT Bearer (Protected)
+* **Response (200 OK):**
   ```json
   {
     "success": true,
     "bookings": [
       {
-        "id": "651f8a2e3f4e5a6b7c8d9e05",
-        "bookingCode": "BKG-20261109",
-        "status": "completed",
-        "amount": 750.00
+        "id": "60d5ec4b1f48c34f3b2591d1",
+        "bookingCode": "HH-2026-9831",
+        "serviceName": "Split AC Deep Cleaning",
+        "scheduledTime": "2026-06-27T10:30:00.000Z",
+        "status": "assigned",
+        "totalAmount": 649
       }
     ]
+  }
+  ```
+
+---
+
+#### `GET /bookings/:id`
+Retrieves full details of a specific booking.
+* **Authentication:** JWT Bearer (Protected)
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "booking": {
+      "id": "60d5ec4b1f48c34f3b2591d1",
+      "bookingCode": "HH-2026-9831",
+      "customerId": "60d5ec4b1f48c34f3b2591a1",
+      "technicianId": "60d5ec4b1f48c34f3b2591b0",
+      "status": "completed",
+      "billing": {
+        "totalAmount": 649,
+        "platformCommission": 97,
+        "netToHero": 534,
+        "isPaid": true
+      },
+      "address": {
+        "street": "Flat 402, Oakwood Towers",
+        "area": "Jubilee Hills",
+        "city": "Hyderabad",
+        "pincode": "500081"
+      },
+      "checklist": [
+        { "task": "Pre-service photo uploaded", "completed": true },
+        { "task": "Duct cleaning completed", "completed": true }
+      ]
+    }
+  }
+  ```
+
+---
+
+#### `PUT /bookings/:id`
+Updates the booking (e.g. scheduling details, checking off service tasks).
+* **Authentication:** JWT Bearer (Protected)
+* **Request Body (Example: Complete checklist task):**
+  ```json
+  {
+    "checklist": [
+      { "task": "Pre-service photo uploaded", "completed": true },
+      { "task": "Duct cleaning completed", "completed": true, "timestamp": "2026-06-26T10:55:00.000Z" }
+    ]
+  }
+  ```
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "booking": { ... updated booking object ... }
+  }
+  ```
+
+---
+
+#### `POST /bookings/:id/cancel`
+Cancels the booking. Charges a cancellation fee if the technician was already en-route.
+* **Authentication:** JWT Bearer (Protected)
+* **Request Body:**
+  ```json
+  {
+    "reason": "Family emergency."
+  }
+  ```
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "message": "Booking cancelled successfully.",
+    "cancellationFee": 50 // Cancellation fee charged in INR
+  }
+  ```
+
+---
+
+#### `POST /bookings/:id/technician-response`
+Accepts or rejects an incoming job matching ring.
+* **Authentication:** JWT Bearer (Protected). Roles allowed: `provider`, `technician`.
+* **Request Body:**
+  ```json
+  {
+    "response": "accept" // Options: "accept", "reject"
+  }
+  ```
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "message": "Booking assigned to technician successfully.",
+    "status": "assigned"
+  }
+  ```
+
+---
+
+#### `GET /bookings/:id/messages`
+Retrieves chat logs associated with the booking.
+* **Authentication:** JWT Bearer (Protected)
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "messages": [
+      {
+        "_id": "60d5ec4b1f48c34f3b259201",
+        "senderId": "60d5ec4b1f48c34f3b2591a1",
+        "senderName": "Priya Sharma",
+        "message": "Hi Rajesh, you can ring bell 402 directly.",
+        "createdAt": "2026-06-26T10:18:22.000Z"
+      }
+    ]
+  }
+  ```
+
+---
+
+### 2.6 Payment APIs
+
+#### `POST /payments/create-order`
+Creates a pre-authorized order with Razorpay.
+* **Authentication:** JWT Bearer (Protected)
+* **Request Body:**
+  ```json
+  {
+    "bookingId": "60d5ec4b1f48c34f3b2591d1"
+  }
+  ```
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "order": {
+      "id": "order_O1h83hf20kdh1",
+      "entity": "order",
+      "amount": 64900, // Amount in paise (649 INR)
+      "currency": "INR",
+      "receipt": "receipt_booking_9831"
+    }
+  }
+  ```
+
+---
+
+#### `POST /payments/verify`
+Receives payment verification parameters from Razorpay Checkout success callbacks.
+* **Authentication:** None (Public / Callback signature verified internally via HMAC-SHA256)
+* **Request Body:**
+  ```json
+  {
+    "razorpay_order_id": "order_O1h83hf20kdh1",
+    "razorpay_payment_id": "pay_O1h92kfh293k",
+    "razorpay_signature": "82f93d4a0db2a554a938c82de940fa3214e9f029c",
+    "bookingId": "60d5ec4b1f48c34f3b2591d1"
+  }
+  ```
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "message": "Payment verified and booking updated to paid successfully.",
+    "payment": {
+      "paymentId": "pay_O1h92kfh293k",
+      "amount": 64900,
+      "paymentStatus": "successful"
+    }
+  }
+  ```
+
+---
+
+#### `POST /payments/release/:bookingId`
+Releases escrowed funds to the technician's wallet upon completion of the service checklist.
+* **Authentication:** JWT Bearer (Protected)
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "message": "Escrow released successfully.",
+    "walletBalance": 2384, // Updated wallet balance in INR
+    "split": {
+      "platformCommission": 97.00,
+      "netToHero": 534.00
+    }
+  }
+  ```
+
+---
+
+#### `GET /payments/invoice/:paymentId`
+Fetches billing details and receipt lines for a completed transaction.
+* **Authentication:** JWT Bearer (Protected)
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "invoice": {
+      "invoiceNumber": "INV-2026-48312",
+      "paymentId": "pay_O1h92kfh293k",
+      "amount": 649,
+      "platformCommission": 97,
+      "technicianAmount": 534,
+      "customerName": "Priya Sharma",
+      "technicianName": "Rajesh Kumar",
+      "date": "2026-06-26T10:00:05.000Z"
+    }
+  }
+  ```
+
+---
+
+#### `POST /payments/refund/:paymentId`
+Initiates a refund for cancelled services.
+* **Authentication:** JWT Bearer (Protected). Roles allowed: `admin`, `customer`.
+* **Request Body:**
+  ```json
+  {
+    "amount": 64900 // Refund amount in paise
+  }
+  ```
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "message": "Refund processed successfully.",
+    "refund": {
+      "refundId": "rfnd_P34823kfjg29",
+      "amount": 64900,
+      "status": "processed"
+    }
+  }
+  ```
+
+---
+
+### 2.7 Review APIs
+
+#### `POST /reviews`
+Submits a service rating and comment.
+* **Authentication:** JWT Bearer (Protected).
+* **Request Body:**
+  ```json
+  {
+    "bookingId": "60d5ec4b1f48c34f3b2591d1",
+    "rating": 5,
+    "comment": "Excellent service! Clean and quick work.",
+    "photos": [
+      "https://assets.homehero.in/reviews/bookings_9831_complete1.webp"
+    ]
+  }
+  ```
+* **Response (201 Created):**
+  ```json
+  {
+    "success": true,
+    "review": {
+      "id": "60d5ec4b1f48c34f3b2591f1",
+      "rating": 5,
+      "comment": "Excellent service! Clean and quick work."
+    }
+  }
+  ```
+
+---
+
+#### `GET /reviews/:technicianId`
+Fetches reviews written for a technician.
+* **Authentication:** None (Public)
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "reviews": [
+      {
+        "id": "60d5ec4b1f48c34f3b2591f1",
+        "rating": 5,
+        "comment": "Excellent service! Clean and quick work.",
+        "reviewerName": "Priya Sharma",
+        "createdAt": "2026-06-26T11:30:00.000Z"
+      }
+    ]
+  }
+  ```
+
+---
+
+### 2.8 Admin APIs
+
+#### `GET /admin/stats`
+Retrieves system-wide KPI metrics for the analytics graphs.
+* **Authentication:** JWT Bearer (Protected). Roles allowed: `admin`.
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "stats": {
+      "totalUsers": 1284,
+      "totalTechnicians": 142,
+      "activeBookings": 18,
+      "totalRevenuePaise": 59384900,
+      "totalCommissionPaise": 8907700
+    }
+  }
+  ```
+
+---
+
+#### `GET /admin/dashboard`
+Returns aggregated graph datasets.
+* **Authentication:** JWT Bearer (Protected). Roles allowed: `admin`.
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "analytics": {
+      "revenueTrajectory": [
+        { "date": "2026-06-20", "amount": 8450 },
+        { "date": "2026-06-21", "amount": 9200 }
+      ],
+      "categoryShares": [
+        { "name": "Electrician", "value": 38 },
+        { "name": "AC Repair", "value": 42 }
+      ]
+    }
+  }
+  ```
+
+---
+
+#### `GET /admin/users`
+Lists registered customer profiles with verification status toggles.
+* **Authentication:** JWT Bearer (Protected). Roles allowed: `admin`.
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "users": [
+      {
+        "_id": "60d5ec4b1f48c34f3b2591a1",
+        "name": "Priya Sharma",
+        "email": "priya.sharma@example.com",
+        "phone": "+919876543210",
+        "isVerified": true,
+        "createdAt": "2026-06-20T08:30:00.000Z"
+      }
+    ]
+  }
+  ```
+
+---
+
+#### `PUT /admin/users/:id/status`
+Suspends or reactivates a customer or technician user account.
+* **Authentication:** JWT Bearer (Protected). Roles allowed: `admin`.
+* **Request Body:**
+  ```json
+  {
+    "isVerified": false // Suspends verification status
+  }
+  ```
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "message": "User status updated successfully.",
+    "user": {
+      "id": "60d5ec4b1f48c34f3b2591a1",
+      "isVerified": false
+    }
+  }
+  ```
+
+---
+
+#### `GET /admin/heroes/pending`
+Fetches technician profiles awaiting KYC validation.
+* **Authentication:** JWT Bearer (Protected). Roles allowed: `admin`.
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "pendingHeroes": [
+      {
+        "id": "60d5ec4b1f48c34f3b2591bf",
+        "fullName": "Amit Patel",
+        "phone": "+917654321098",
+        "serviceCategory": "Plumber",
+        "aadhaarNumber": "893019283748",
+        "verification": {
+          "status": "pending",
+          "backgroundCheckStatus": "pending"
+        }
+      }
+    ]
+  }
+  ```
+
+---
+
+#### `PUT /admin/heroes/:id/verify`
+Manually completes KYC audit, changing statuses.
+* **Authentication:** JWT Bearer (Protected). Roles allowed: `admin`.
+* **Request Body:**
+  ```json
+  {
+    "status": "verified", // Options: "verified", "unverified", "pending"
+    "licenseVerified": true,
+    "backgroundCheckStatus": "passed"
+  }
+  ```
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "message": "Technician credentials verified successfully."
+  }
+  ```
+
+---
+
+#### `GET /admin/bookings`
+List all bookings inside the platform.
+* **Authentication:** JWT Bearer (Protected). Roles allowed: `admin`.
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "bookings": [ ... list of all booking objects ... ]
+  }
+  ```
+
+---
+
+#### `GET /admin/pricing/multipliers`
+Fetches current surge configurations.
+* **Authentication:** JWT Bearer (Protected). Roles allowed: `admin`.
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "multipliers": {
+      "holidayMultiplier": 1.25,
+      "monsoonMultiplier": 1.15,
+      "nightShiftMultiplier": 1.20
+    }
+  }
+  ```
+
+---
+
+#### `PUT /admin/pricing/multipliers`
+Updates surge multipliers dynamically.
+* **Authentication:** JWT Bearer (Protected). Roles allowed: `admin`.
+* **Request Body:**
+  ```json
+  {
+    "holidayMultiplier": 1.30,
+    "monsoonMultiplier": 1.20,
+    "nightShiftMultiplier": 1.25
+  }
+  ```
+* **Response (200 OK):**
+  ```json
+  {
+    "success": true,
+    "message": "Surge multipliers updated successfully."
   }
   ```

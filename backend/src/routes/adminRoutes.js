@@ -15,5 +15,6 @@ router.put('/heroes/:id/verify', adminController.verifyHero);
 router.get('/bookings', adminController.getBookings);
 router.get('/pricing/multipliers', adminController.getPricingMultipliers);
 router.put('/pricing/multipliers', adminController.updatePricingMultipliers);
+router.put('/users/:id/status', adminController.updateUserStatus);
 
 module.exports = router;

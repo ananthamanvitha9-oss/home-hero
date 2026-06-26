@@ -130,6 +130,7 @@ exports.getBookings = async (req, res) => {
 
     const logs = bookingsList.map((b) => ({
       id: b.bookingCode,
+      bookingId: b._id,
       customer: b.customerId ? `${b.customerId.firstName} ${b.customerId.lastName}` : 'Guest Customer',
       hero: b.technicianId ? `${b.technicianId.firstName} ${b.technicianId.lastName}` : 'Searching...',
       service: b.serviceId ? b.serviceId.name : 'General Service',
@@ -249,8 +250,11 @@ exports.getUsers = async (req, res) => {
     
     const mapped = usersList.map(u => ({
       id: u._id,
+      name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Guest',
       email: u.email,
+      phone: u.phone || 'N/A',
       role: u.role === 'provider' ? 'technician' : u.role,
+      isVerified: u.isVerified,
       createdAt: u.createdAt
     }));
 
@@ -260,6 +264,38 @@ exports.getUsers = async (req, res) => {
     });
   } catch (err) {
     console.error('[AdminController] getUsers error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// 9. Update user verification/status (verify or suspend/deactivate)
+exports.updateUserStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isVerified } = req.body;
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    user.isVerified = isVerified;
+    await user.save();
+
+    // If the user is a provider/technician, also update their Technician profile status
+    if (user.role === 'provider' || user.role === 'technician') {
+      await Technician.findOneAndUpdate(
+        { userId: user._id },
+        { 'verification.status': isVerified ? 'verified' : 'unverified' }
+      );
+    }
+
+    res.json({
+      success: true,
+      message: `User status updated successfully. Account is now ${isVerified ? 'active/verified' : 'suspended/unverified'}.`
+    });
+  } catch (err) {
+    console.error('[AdminController] updateUserStatus error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 };

@@ -27,7 +27,10 @@ const reviewSchema = new mongoose.Schema(
     comment: {
       type: String,
       default: ''
-    }
+    },
+    photos: [{
+      type: String
+    }]
   },
   {
     timestamps: true

@@ -4,7 +4,7 @@ const Technician = require('../models/technicianModel');
 
 exports.createReview = async (req, res) => {
   try {
-    const { booking_id, bookingId, rating, comment } = req.body;
+    const { booking_id, bookingId, rating, comment, photos } = req.body;
     const finalBookingId = bookingId || booking_id;
 
     if (!finalBookingId || !rating) {
@@ -37,7 +37,8 @@ exports.createReview = async (req, res) => {
       reviewerId: req.user.id,
       revieweeId: booking.technicianId,
       rating: numericRating,
-      comment: comment || ''
+      comment: comment || '',
+      photos: photos || []
     });
 
     await newReview.save();

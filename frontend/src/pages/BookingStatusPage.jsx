@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { InteractiveMap } from '../components/InteractiveMap';
 
 // ─── Static Data ──────────────────────────────────────────────────────────────
 const SERVICES = [
@@ -33,6 +34,9 @@ const MOCK_BOOKINGS = [
     hero: { name: 'Ravi Shankar', phone: '98765 43210', rating: 4.9, jobs: 127, avatar: 'R' },
     timeline: [{ time: '08:00 AM', event: 'Booking created', done: true }, { time: '08:45 AM', event: 'Hero assigned', done: true }, { time: '--', event: 'Service begins', done: false }, { time: '--', event: 'Completed', done: false }],
     notes: 'AC not cooling below 28°C even on max. Gas may be low.',
+    customerCoords: [78.38401, 17.4281],
+    technicianCoords: { lat: 17.42621, lng: 78.38202 },
+    eta: 'Arriving in 8 mins (1.2 km away)',
   },
   {
     _id: 'b003', code: 'HH-11223', service: 'Plumber', icon: '🚰', serviceColor: '#3B82F6',
@@ -41,6 +45,9 @@ const MOCK_BOOKINGS = [
     hero: { name: 'Kiran Patel', phone: '97654 32100', rating: 4.8, jobs: 89, avatar: 'K' },
     timeline: [{ time: '10:00 AM', event: 'Booking created', done: true }, { time: '10:22 AM', event: 'Hero assigned', done: true }, { time: '11:05 AM', event: 'Service started', done: true }, { time: '--', event: 'Completed', done: false }],
     notes: 'Kitchen sink draining slowly. Also check bathroom tap.',
+    customerCoords: [78.38100, 17.42500],
+    technicianCoords: { lat: 17.42410, lng: 78.37900 },
+    eta: 'Active Job Site (0.3 km away)',
   },
   {
     _id: 'b004', code: 'HH-77441', service: 'Carpenter', icon: '🪚', serviceColor: '#10B981',
@@ -423,7 +430,7 @@ function BookServiceForm({ onBookingCreated }) {
 }
 
 // ─── Booking Card ─────────────────────────────────────────────────────────────
-function BookingCard({ booking, onCancel, onRebook }) {
+function BookingCard({ booking, onCancel, onRebook, onReview }) {
   const [expanded, setExpanded] = useState(false);
   const cfg = STATUS_CONFIG[booking.status] || STATUS_CONFIG.pending;
   const isLive = ['pending', 'accepted', 'in_progress'].includes(booking.status);
@@ -555,15 +562,58 @@ function BookingCard({ booking, onCancel, onRebook }) {
                     <span style={{ color: '#F59E0B', fontSize: '11px', fontWeight: 700 }}>Your Review</span>
                   </div>
                   <div style={{ color: '#94A3B8', fontSize: '11px', fontStyle: 'italic' }}>"{booking.review.comment}"</div>
+                  {booking.review.photos && booking.review.photos.length > 0 && (
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                      {booking.review.photos.map((photo, pIdx) => (
+                        <img 
+                          key={pIdx} 
+                          src={photo} 
+                          alt="Job completion" 
+                          style={{ width: '45px', height: '45px', borderRadius: '6px', objectFit: 'cover', border: '1px solid #F59E0B44' }} 
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
 
+          {/* Live Map Tracking for active statuses */}
+          {['accepted', 'in_progress'].includes(booking.status) && (
+            <div style={{ borderTop: '1px solid #1E293B', padding: '16px 20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <span style={{ color: '#94A3B8', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  🛰️ Live Map Telemetry
+                </span>
+                <span style={{ color: '#10B981', fontSize: '12px', fontWeight: 700 }}>
+                  🚗 {booking.eta || 'Calculating ETA...'}
+                </span>
+              </div>
+              <InteractiveMap 
+                customerCoords={booking.customerCoords} 
+                technicianCoords={booking.technicianCoords} 
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', background: '#1E293B33', borderRadius: '8px', padding: '8px 12px' }}>
+                <span style={{ color: '#64748B', fontSize: '11px' }}>
+                  Need navigation app direction?
+                </span>
+                <a 
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${booking.technicianCoords ? `${booking.technicianCoords.lat},${booking.technicianCoords.lng}` : '17.42621,78.38202'}`} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  style={{ color: '#6366F1', fontSize: '11px', fontWeight: 700, textDecoration: 'none' }}
+                >
+                  🗺️ Open in Google Maps →
+                </a>
+              </div>
+            </div>
+          )}
+
           {/* Action bar */}
           <div style={{ borderTop: '1px solid #1E293B', padding: '12px 20px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
             {booking.status === 'completed' && !booking.review && (
-              <button style={{ padding: '8px 16px', borderRadius: '8px', background: '#F59E0B18', border: '1px solid #F59E0B44', color: '#F59E0B', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+              <button onClick={() => onReview(booking)} style={{ padding: '8px 16px', borderRadius: '8px', background: '#F59E0B18', border: '1px solid #F59E0B44', color: '#F59E0B', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
                 ⭐ Leave Review
               </button>
             )}
@@ -665,6 +715,135 @@ function CancelModal({ booking, onConfirm, onClose }) {
   );
 }
 
+// Predefined mock job completion photos that users can choose to attach to their reviews
+const MOCK_COMPLETION_PHOTOS = [
+  { id: 'p1', name: 'Fixed Wiring', url: 'https://images.unsplash.com/photo-1581092921461-eab62e97a780?auto=format&fit=crop&w=150&q=80' },
+  { id: 'p2', name: 'Repaired Pipe', url: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=150&q=80' },
+  { id: 'p3', name: 'Woodwork Finish', url: 'https://images.unsplash.com/photo-1533090161767-e6ffed986c88?auto=format&fit=crop&w=150&q=80' },
+  { id: 'p4', name: 'AC Filter Clean', url: 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?auto=format&fit=crop&w=150&q=80' },
+];
+
+// ─── Review Modal ─────────────────────────────────────────────────────────────
+function ReviewModal({ booking, onConfirm, onClose }) {
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
+  const [hoverRating, setHoverRating] = useState(0);
+  const [selectedPhotos, setSelectedPhotos] = useState([]);
+  
+  if (!booking) return null;
+
+  const handleTogglePhoto = (url) => {
+    if (selectedPhotos.includes(url)) {
+      setSelectedPhotos(prev => prev.filter(p => p !== url));
+    } else {
+      setSelectedPhotos(prev => [...prev, url]);
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', padding: '16px' }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: '18px', padding: '24px', maxWidth: '440px', width: '100%', boxShadow: '0 25px 50px rgba(0,0,0,0.6)' }}>
+        <div style={{ fontSize: '40px', textAlign: 'center', marginBottom: '12px' }}>🌟</div>
+        <h2 style={{ color: '#fff', fontWeight: 800, fontSize: '18px', textAlign: 'center', margin: '0 0 6px' }}>Leave a Review</h2>
+        <p style={{ color: '#64748B', fontSize: '12px', textAlign: 'center', marginBottom: '20px' }}>
+          Rate your experience with <strong>{booking.hero?.name || 'your Hero'}</strong> for booking {booking.code}
+        </p>
+
+        {/* Glowing Interactive Stars */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '20px' }}>
+          {[1, 2, 3, 4, 5].map(star => {
+            const active = (hoverRating || rating) >= star;
+            return (
+              <span 
+                key={star}
+                onMouseEnter={() => setHoverRating(star)}
+                onMouseLeave={() => setHoverRating(0)}
+                onClick={() => setRating(star)}
+                style={{ 
+                  fontSize: '32px', 
+                  cursor: 'pointer', 
+                  color: active ? '#F59E0B' : '#334155',
+                  textShadow: active ? '0 0 10px rgba(245,158,11,0.5)' : 'none',
+                  transition: 'color 0.15s, transform 0.15s',
+                  transform: (hoverRating === star) ? 'scale(1.2)' : 'scale(1)'
+                }}
+              >
+                ★
+              </span>
+            );
+          })}
+        </div>
+
+        {/* Review Comments */}
+        <label style={{ display: 'block', color: '#94A3B8', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
+          Review Comments
+        </label>
+        <textarea value={comment} onChange={e => setComment(e.target.value)}
+          style={{ width: '100%', background: '#1E293B', border: '1px solid #334155', color: '#fff', borderRadius: '8px', padding: '10px', fontSize: '13px', outline: 'none', resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box', minHeight: '80px', marginBottom: '16px' }}
+          placeholder="Describe how the technician resolved the issue..." />
+
+        {/* Attach Completion Photos */}
+        <label style={{ display: 'block', color: '#94A3B8', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
+          Attach Completion Photos ({selectedPhotos.length} selected)
+        </label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '20px' }}>
+          {MOCK_COMPLETION_PHOTOS.map(p => {
+            const isSelected = selectedPhotos.includes(p.url);
+            return (
+              <div 
+                key={p.id} 
+                onClick={() => handleTogglePhoto(p.url)}
+                style={{ 
+                  position: 'relative', 
+                  cursor: 'pointer', 
+                  borderRadius: '8px', 
+                  overflow: 'hidden', 
+                  height: '65px',
+                  border: `2px solid ${isSelected ? '#F59E0B' : 'transparent'}`,
+                  boxShadow: isSelected ? '0 0 8px rgba(245,158,11,0.4)' : 'none',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <img src={p.url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                {isSelected && (
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(245,158,11,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '14px' }}>
+                    ✓
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Buttons */}
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            onClick={() => onConfirm({ rating, comment, photos: selectedPhotos })} 
+            style={{ 
+              flex: 1, 
+              background: 'linear-gradient(135deg,#F59E0B,#D97706)', 
+              color: '#fff', 
+              border: 'none', 
+              borderRadius: '10px', 
+              padding: '13px', 
+              fontSize: '14px', 
+              fontWeight: 700, 
+              cursor: 'pointer', 
+              boxShadow: '0 4px 14px rgba(245,158,11,0.3)' 
+            }}
+          >
+            Submit Review
+          </button>
+          <button onClick={onClose} style={{ flex: 1, background: '#1E293B', border: '1px solid #334155', color: '#fff', borderRadius: '10px', padding: '13px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export function BookingStatusPage() {
   const [view, setView]               = useState('status');   // 'book' | 'status'
@@ -672,6 +851,7 @@ export function BookingStatusPage() {
   const [filter, setFilter]           = useState('all');
   const [search, setSearch]           = useState('');
   const [cancelTarget, setCancelTarget] = useState(null);
+  const [reviewTarget, setReviewTarget] = useState(null);
   const [successBanner, setSuccessBanner] = useState('');
 
   const handleNewBooking = (booking) => {
@@ -687,6 +867,14 @@ export function BookingStatusPage() {
     setBookings(prev => prev.map(b => b._id === cancelTarget._id ? { ...b, status: 'cancelled', cancelReason: reason } : b));
     setCancelTarget(null);
     setSuccessBanner('Booking cancelled. Any applicable refund will be processed in 3–5 days.');
+    setTimeout(() => setSuccessBanner(''), 5000);
+  };
+
+  const handleReviewRequest = (booking) => setReviewTarget(booking);
+  const confirmReview = ({ rating, comment, photos }) => {
+    setBookings(prev => prev.map(b => b._id === reviewTarget._id ? { ...b, review: { rating, comment, photos } } : b));
+    setReviewTarget(null);
+    setSuccessBanner('🌟 Thank you! Your rating and comments have been posted to your Hero.');
     setTimeout(() => setSuccessBanner(''), 5000);
   };
 
@@ -796,7 +984,7 @@ export function BookingStatusPage() {
                   </div>
                 )}
                 {filtered.map(booking => (
-                  <BookingCard key={booking._id} booking={booking} onCancel={handleCancel} onRebook={handleRebook} />
+                  <BookingCard key={booking._id} booking={booking} onCancel={handleCancel} onRebook={handleRebook} onReview={handleReviewRequest} />
                 ))}
               </div>
             )}
@@ -806,6 +994,9 @@ export function BookingStatusPage() {
 
       {/* ── Cancel Modal ── */}
       <CancelModal booking={cancelTarget} onConfirm={confirmCancel} onClose={() => setCancelTarget(null)} />
+
+      {/* ── Review Modal ── */}
+      <ReviewModal booking={reviewTarget} onConfirm={confirmReview} onClose={() => setReviewTarget(null)} />
     </div>
   );
 }

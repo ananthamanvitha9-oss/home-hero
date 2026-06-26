@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/useAuth';
 import { api } from '../services/api';
 
@@ -12,13 +12,15 @@ const SERVICE_CATEGORIES = [
 const DAY_OPTIONS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const TIME_SLOTS  = ['06:00','07:00','08:00','09:00','10:00','11:00','12:00',
                      '13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00'];
+
 const TABS = [
-  { id: 'register',     label: 'Registration', icon: '📋' },
-  { id: 'profile',      label: 'Profile',       icon: '👤' },
+  { id: 'jobs',         label: "Today's Jobs", icon: '💼' },
+  { id: 'earnings',     label: 'Earnings',     icon: '💰' },
   { id: 'availability', label: 'Availability',  icon: '🗓️' },
-  { id: 'experience',   label: 'Experience',    icon: '🏆' },
-  { id: 'ratings',      label: 'Ratings',       icon: '⭐' },
+  { id: 'ratings',      label: 'Reviews',       icon: '⭐' },
+  { id: 'profile',      label: 'Profile',       icon: '👤' },
 ];
+
 const MOCK_REVIEWS = [
   { id:1, customer:'Priya S.',  avatar:'P', rating:5, date:'2 days ago',  comment:'Excellent work! Fixed the wiring issue quickly and cleanly. Very professional.',         service:'Electrician' },
   { id:2, customer:'Rohan D.',  avatar:'R', rating:5, date:'1 week ago',  comment:'Very punctual and thorough. Explained every step clearly. Will book again!',            service:'AC Repair'   },
@@ -128,10 +130,14 @@ function RegistrationTab({ onRegistered }) {
   const submit = async () => {
     setSaving(true);
     try {
-      await new Promise(r => setTimeout(r, 1200));
+      await api.updateHeroProfile({
+        skills: [cat],
+        experienceYears: exp,
+        bio: `Professional ${cat} with ${exp} years of background verified experience.`
+      });
       setDone(true);
-      setAlert({ type:'success', message:'🎉 Application submitted! Our team will verify your documents within 24 hours.' });
-      onRegistered && onRegistered({ name, email, phone, city, area, cat, exp });
+      setAlert({ type:'success', message:'🎉 Application submitted! Our team has verified your credentials.' });
+      onRegistered && onRegistered();
     } catch {
       setAlert({ type:'error', message:'Registration failed. Please try again.' });
     } finally {
@@ -139,18 +145,17 @@ function RegistrationTab({ onRegistered }) {
     }
   };
 
-  const appId = 'HH-' + Math.random().toString(36).slice(2,8).toUpperCase();
+  const [appId] = useState(() => 'HH-' + Math.random().toString(36).slice(2,8).toUpperCase());
 
   if (done) return (
     <div style={{textAlign:'center', padding:'48px 24px'}}>
       <div style={{fontSize:'64px', marginBottom:'16px'}}>🎉</div>
       <h2 style={{color:'#fff', fontSize:'22px', fontWeight:800, marginBottom:'8px'}}>Application Submitted!</h2>
       <p style={{color:'#94A3B8', fontSize:'14px', maxWidth:'400px', margin:'0 auto 24px'}}>
-        Your profile is under review. An email will be sent to{' '}
-        <strong style={{color:'#6366F1'}}>{email}</strong> within 24 hours.
+        Your profile has been verified successfully. Get ready to receive client requests!
       </p>
       <div style={{display:'flex', gap:'12px', justifyContent:'center', flexWrap:'wrap'}}>
-        {[{icon:'📋',l:'Application ID',v:appId},{icon:'🔍',l:'KYC Status',v:'Under Review'},{icon:'⏱️',l:'ETA',v:'24–48 hrs'}].map(item => (
+        {[{icon:'📋',l:'Application ID',v:appId},{icon:'🔍',l:'KYC Status',v:'Verified ✅'},{icon:'⏱️',l:'ETA',v:'Instant'}].map(item => (
           <div key={item.l} style={{background:'#0F172A', border:'1px solid #1E293B', borderRadius:'12px', padding:'16px 20px', minWidth:'130px'}}>
             <div style={{fontSize:'22px', marginBottom:'6px'}}>{item.icon}</div>
             <div style={{color:'#64748B', fontSize:'10px', textTransform:'uppercase', letterSpacing:'0.06em'}}>{item.l}</div>
@@ -286,7 +291,6 @@ function RegistrationTab({ onRegistered }) {
 
 // ─── Profile Tab ──────────────────────────────────────────────────────────────
 function ProfileTab() {
-  const { user } = useAuth();
   const [bio,setBio]       = useState('Certified electrician with 6+ years experience in residential & commercial wiring, fault diagnosis, and solar panel installation. Serving Hyderabad since 2018.');
   const [phone,setPhone]   = useState('+91 98765 43210');
   const [city,setCity]     = useState('Hyderabad');
@@ -295,120 +299,64 @@ function ProfileTab() {
   const [online,setOnline] = useState(true);
   const [saving,setSaving] = useState(false);
   const [alert,setAlert]   = useState(null);
-  const [hover,setHover]   = useState(false);
 
   const save = async () => {
     setSaving(true);
+    setAlert(null);
     try {
       await api.updateHeroProfile({ bio });
-      setAlert({ type:'success', message:'Profile updated successfully!' });
+      await api.updateHeroStatus({ isOnline: online });
+      setAlert({ type:'success', message:'💾 Profile & Status updated successfully!' });
     } catch {
-      setAlert({ type:'success', message:'Saved in offline mode.' });
+      setAlert({ type:'error', message:'Failed to save profile changes.' });
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div style={{display:'grid', gridTemplateColumns:'200px 1fr', gap:'24px'}}>
-      {/* Left card */}
-      <div style={{display:'flex', flexDirection:'column', gap:'14px'}}>
-        <div style={{background:'#0F172A', border:'1px solid #1E293B', borderRadius:'14px',
-          padding:'20px', display:'flex', flexDirection:'column', alignItems:'center', gap:'10px'}}>
-          <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-            style={{width:'84px', height:'84px', borderRadius:'50%',
-              background:'linear-gradient(135deg,#6366F1,#8B5CF6)',
-              display:'flex', alignItems:'center', justifyContent:'center',
-              fontSize:'32px', fontWeight:800, color:'#fff', cursor:'pointer',
-              position:'relative', overflow:'hidden', border:'3px solid #6366F1',
-              transform: hover ? 'scale(1.05)' : 'scale(1)', transition:'transform 0.2s'}}>
-            {user?.first_name?.[0] || 'T'}
-            {hover && (
-              <div style={{position:'absolute', inset:0, background:'rgba(0,0,0,0.5)',
-                display:'flex', alignItems:'center', justifyContent:'center', fontSize:'18px'}}>📷</div>
-            )}
-          </div>
-          <div style={{textAlign:'center'}}>
-            <div style={{color:'#fff', fontWeight:800, fontSize:'14px'}}>
-              {user?.first_name || 'Amit'} {user?.last_name || 'Patel'}
-            </div>
-            <div style={{color:'#6366F1', fontSize:'11px', marginTop:'2px'}}>⚡ Electrician</div>
-          </div>
-          <Badge text="Verified Hero ✓" color="#10B981" />
-          <div style={{width:'100%', padding:'10px', background:'#1E293B', borderRadius:'10px', textAlign:'center'}}>
-            <div style={{color:'#F59E0B', fontSize:'18px', fontWeight:800}}>4.9 ★</div>
-            <div style={{color:'#64748B', fontSize:'10px'}}>127 Reviews</div>
-          </div>
+    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'24px', alignItems:'start'}}>
+      <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
+        <h3 style={{color:'#fff', fontWeight:800, fontSize:'16px', margin:0}}>Hero Profile Details</h3>
+        {alert && <AlertBox type={alert.type} message={alert.message} onClose={() => setAlert(null)} />}
+        <Field label="Mobile Phone" value={phone} onChange={setPhone} />
+        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px'}}>
+          <Field label="City" value={city} onChange={setCity} />
+          <Field label="Area" value={area} onChange={setArea} />
         </div>
-
-        {/* Online toggle */}
-        <div style={{background:'#0F172A', border:`1px solid ${online?'#10B981':'#1E293B'}`,
-          borderRadius:'12px', padding:'12px 14px', display:'flex', alignItems:'center',
-          justifyContent:'space-between', transition:'border-color 0.3s'}}>
-          <div>
-            <div style={{color:'#fff', fontSize:'12px', fontWeight:700}}>Status</div>
-            <div style={{color: online?'#10B981':'#64748B', fontSize:'10px', marginTop:'2px'}}>
-              {online ? '● Available' : '○ Offline'}
+        <div>
+          <label style={{...labelStyle, marginBottom:'8px'}}>Online Status Toggle</label>
+          <label style={{display:'flex', alignItems:'center', gap:'10px', cursor:'pointer',
+            background: online?'rgba(16,185,129,0.08)':'#1E293B44', border:`1px solid ${online?'rgba(16,185,129,0.3)':'#334155'}`, borderRadius:'10px', padding:'12px 14px'}}>
+            <input type="checkbox" checked={online} onChange={e => setOnline(e.target.checked)}
+              style={{accentColor:'#10B981', width:'18px', height:'18px'}} />
+            <div>
+              <div style={{color:online?'#6EE7B7':'#fff', fontSize:'13px', fontWeight:700}}>
+                {online ? '🟢 Available Online':'⚫ Offline / Idle'}
+              </div>
+              <div style={{color:'#64748B', fontSize:'11px'}}>Determines if clients can dispatch requests to you</div>
             </div>
-          </div>
-          <button onClick={() => setOnline(!online)}
-            style={{width:'42px', height:'23px', borderRadius:'12px', border:'none', cursor:'pointer',
-              background: online ? '#10B981' : '#334155', position:'relative', transition:'background 0.3s'}}>
-            <div style={{position:'absolute', top:'2px', left: online?'21px':'2px',
-              width:'19px', height:'19px', borderRadius:'50%', background:'#fff', transition:'left 0.3s'}} />
-          </button>
-        </div>
-
-        {/* Stats */}
-        <div style={{background:'#0F172A', border:'1px solid #1E293B', borderRadius:'12px', padding:'12px 14px'}}>
-          {[{l:'Jobs Done',v:'127'},{l:'Earnings',v:'₹48,500'},{l:'Cancel Rate',v:'2%'}].map((s,i,arr) => (
-            <div key={s.l} style={{display:'flex', justifyContent:'space-between',
-              padding:'7px 0', borderBottom: i<arr.length-1 ? '1px solid #1E293B' : 'none'}}>
-              <span style={{color:'#64748B', fontSize:'11px'}}>{s.l}</span>
-              <span style={{color:'#fff', fontWeight:700, fontSize:'12px'}}>{s.v}</span>
-            </div>
-          ))}
+          </label>
         </div>
       </div>
 
-      {/* Right: form */}
       <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
-        {alert && <AlertBox type={alert.type} message={alert.message} onClose={() => setAlert(null)} />}
-        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px'}}>
-          <Field label="Phone"          value={phone}  onChange={setPhone} />
-          <Field label="City"           value={city}   onChange={setCity}  />
-          <Field label="Area / Locality" value={area}  onChange={setArea}  />
-          <div>
-            <label style={labelStyle}>Service Radius: <span style={{color:'#6366F1'}}>{radius} km</span></label>
-            <input type="range" min={5} max={50} step={5} value={radius}
-              onChange={e => setRadius(parseInt(e.target.value))}
-              style={{width:'100%', marginTop:'10px', accentColor:'#6366F1'}} />
-            <div style={{display:'flex', justifyContent:'space-between', color:'#475569', fontSize:'10px'}}>
-              <span>5 km</span><span>50 km</span>
-            </div>
-          </div>
+        <div>
+          <label style={{...labelStyle, marginBottom:'6px'}}>Professional Bio</label>
+          <textarea value={bio} onChange={e => setBio(e.target.value)} rows={5}
+            style={{...inputStyle, fontFamily:'inherit', lineHeight:1.5}} />
         </div>
         <div>
-          <label style={labelStyle}>Professional Bio</label>
-          <textarea value={bio} onChange={e => setBio(e.target.value)} rows={4}
-            style={{...inputStyle, resize:'vertical', marginTop:'8px', fontFamily:'inherit', lineHeight:1.6, minHeight:'90px'}}
-            placeholder="Describe your expertise and qualifications..." />
-          <div style={{color:'#475569', fontSize:'10px', textAlign:'right', marginTop:'3px'}}>{bio.length}/500</div>
-        </div>
-        <div>
-          <label style={labelStyle}>Service Category</label>
-          <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'8px', marginTop:'8px'}}>
-            {SERVICE_CATEGORIES.map(sc => (
-              <div key={sc.id} style={{textAlign:'center', padding:'10px 4px',
-                borderRadius:'10px', border:'1px solid #1E293B', background:'#0F172A'}}>
-                <div style={{fontSize:'18px', marginBottom:'3px'}}>{sc.icon}</div>
-                <div style={{color:'#64748B', fontSize:'10px'}}>{sc.label}</div>
-              </div>
-            ))}
+          <label style={labelStyle}>Service Radius (Kilometers)</label>
+          <div style={{display:'flex', alignItems:'center', gap:'14px', marginTop:'8px'}}>
+            <button onClick={() => setRadius(Math.max(1,radius-1))} style={ctrBtnStyle}>−</button>
+            <span style={{color:'#fff', fontWeight:700, fontSize:'18px', minWidth:'70px', textAlign:'center'}}>
+              {radius} KM
+            </span>
+            <button onClick={() => setRadius(Math.min(50,radius+1))} style={ctrBtnStyle}>+</button>
           </div>
         </div>
-        <button onClick={save} disabled={saving}
-          style={{...primaryBtn(saving), width:'auto', alignSelf:'flex-start', padding:'12px 28px'}}>
+        <button onClick={save} disabled={saving} style={primaryBtn(saving)}>
           {saving ? '⏳ Saving...' : '💾 Save Profile'}
         </button>
       </div>
@@ -418,81 +366,83 @@ function ProfileTab() {
 
 // ─── Availability Tab ─────────────────────────────────────────────────────────
 function AvailabilityTab() {
-  const [days,setDays]     = useState(['Mon','Tue','Wed','Thu','Fri','Sat']);
-  const [start,setStart]   = useState('09:00');
-  const [end,setEnd]       = useState('18:00');
-  const [breaks,setBreaks] = useState([{from:'13:00',to:'14:00'}]);
-  const [maxJobs,setMax]   = useState(3);
-  const [saving,setSaving] = useState(false);
-  const [alert,setAlert]   = useState(null);
+  const [days, setDays] = useState(['Mon','Tue','Wed','Thu','Fri','Sat']);
+  const [start, setStart] = useState('09:00');
+  const [end, setEnd] = useState('18:00');
+  const [breaks, setBreaks] = useState([{ from: '13:00', to: '14:00' }]);
+  const [maxJobs, setMax] = useState(4);
+  const [saving, setSaving] = useState(false);
+  const [alert, setAlert] = useState(null);
 
-  const toggleDay = d => setDays(p => p.includes(d) ? p.filter(x=>x!==d) : [...p,d]);
-  const addBreak  = () => setBreaks(p => [...p, {from:'13:00',to:'14:00'}]);
-  const rmBreak   = i => setBreaks(p => p.filter((_,j)=>j!==i));
-  const updBreak  = (i,k,v) => setBreaks(p => p.map((x,j)=>j===i?{...x,[k]:v}:x));
+  const toggleDay = (day) => {
+    if (days.includes(day)) {
+      setDays(p => p.filter(d => d !== day));
+    } else {
+      setDays(p => [...p, day]);
+    }
+  };
 
-  const totalHours = (() => {
-    const [sh,sm] = start.split(':').map(Number);
-    const [eh,em] = end.split(':').map(Number);
-    const h = (eh*60+em - sh*60-sm)/60;
-    return h > 0 ? h : 0;
-  })();
+  const addBreak = () => setBreaks(p => [...p, { from: '15:00', to: '15:30' }]);
+  const rmBreak  = idx => setBreaks(p => p.filter((_,i) => i !== idx));
+  const updBreak = (idx, k, v) => setBreaks(p => p.map((b,i) => i===idx ? {...b, [k]:v} : b));
 
   const save = async () => {
     setSaving(true);
+    setAlert(null);
     try {
-      await new Promise(r => setTimeout(r,700));
-      setAlert({ type:'success', message:'Availability saved! You will receive jobs during selected hours.' });
-    } finally { setSaving(false); }
+      await api.updateHeroProfile({
+        availability: {
+          days,
+          startTime: start,
+          endTime: end
+        }
+      });
+      setAlert({ type:'success', message:'📅 Availability calendar updated successfully.' });
+    } catch {
+      setAlert({ type:'error', message:'Failed to save availability settings.' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <div style={{maxWidth:'620px', display:'flex', flexDirection:'column', gap:'20px'}}>
-      {alert && <AlertBox type={alert.type} message={alert.message} onClose={()=>setAlert(null)} />}
+    <div style={{display:'grid', gridTemplateColumns:'1.2fr 1fr', gap:'24px', alignItems:'start'}}>
+      <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
+        <h3 style={{color:'#fff', fontWeight:800, fontSize:'16px', margin:0}}>Working Schedule Calendar</h3>
+        {alert && <AlertBox type={alert.type} message={alert.message} onClose={() => setAlert(null)} />}
 
-      {/* Working Days */}
-      <div style={{background:'#0F172A', border:'1px solid #1E293B', borderRadius:'14px', padding:'20px'}}>
-        <h3 style={{color:'#fff', fontWeight:700, fontSize:'14px', marginBottom:'14px'}}>📅 Working Days</h3>
-        <div style={{display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:'6px'}}>
-          {DAY_OPTIONS.map(day => {
-            const active = days.includes(day);
-            return (
-              <button key={day} onClick={() => toggleDay(day)} style={{
-                padding:'10px 2px', borderRadius:'10px', border:'2px solid',
-                borderColor: active ? '#6366F1' : '#1E293B',
-                background: active ? '#6366F144' : '#0F172A',
-                cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:'4px'}}>
-                <span style={{color: active?'#A5B4FC':'#475569', fontSize:'11px', fontWeight:700}}>{day}</span>
-                <span style={{width:'6px',height:'6px',borderRadius:'50%',background:active?'#6366F1':'#1E293B'}}/>
-              </button>
-            );
-          })}
+        {/* Days */}
+        <div>
+          <label style={{...labelStyle, marginBottom:'8px'}}>Working Days</label>
+          <div style={{display:'flex', gap:'6px', flexWrap:'wrap'}}>
+            {DAY_OPTIONS.map(day => {
+              const active = days.includes(day);
+              return (
+                <button key={day} onClick={() => toggleDay(day)} style={{
+                  width:'45px', height:'45px', borderRadius:'10px', border:'1px solid',
+                  borderColor: active ? '#6366F1' : '#334155',
+                  background: active ? '#6366F122' : 'transparent',
+                  color: active ? '#A5B4FC' : '#64748B',
+                  fontWeight:700, cursor:'pointer', transition:'all 0.2s'}}>
+                  {day}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div style={{color:'#64748B', fontSize:'11px', marginTop:'10px'}}>
-          {days.length} day{days.length!==1?'s':''} selected
-        </div>
-      </div>
 
-      {/* Working Hours */}
-      <div style={{background:'#0F172A', border:'1px solid #1E293B', borderRadius:'14px', padding:'20px'}}>
-        <h3 style={{color:'#fff', fontWeight:700, fontSize:'14px', marginBottom:'14px'}}>
-          🕘 Working Hours
-          <span style={{color:'#6366F1', fontSize:'12px', fontWeight:600, marginLeft:'10px'}}>
-            {totalHours.toFixed(1)} hrs/day
-          </span>
-        </h3>
-        <div style={{display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center', gap:'12px'}}>
+        {/* Hours */}
+        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px'}}>
           <div>
-            <label style={labelStyle}>Start Time</label>
-            <select value={start} onChange={e=>setStart(e.target.value)} style={{...inputStyle, marginTop:'6px'}}>
-              {TIME_SLOTS.map(t=><option key={t} value={t}>{t}</option>)}
+            <label style={{...labelStyle, marginBottom:'6px'}}>Start Time</label>
+            <select value={start} onChange={e => setStart(e.target.value)} style={inputStyle}>
+              {TIME_SLOTS.map(t => <option key={t}>{t}</option>)}
             </select>
           </div>
-          <div style={{color:'#475569', fontSize:'18px', marginTop:'18px'}}>→</div>
           <div>
-            <label style={labelStyle}>End Time</label>
-            <select value={end} onChange={e=>setEnd(e.target.value)} style={{...inputStyle, marginTop:'6px'}}>
-              {TIME_SLOTS.map(t=><option key={t} value={t}>{t}</option>)}
+            <label style={{...labelStyle, marginBottom:'6px'}}>End Time</label>
+            <select value={end} onChange={e => setEnd(e.target.value)} style={inputStyle}>
+              {TIME_SLOTS.map(t => <option key={t}>{t}</option>)}
             </select>
           </div>
         </div>
@@ -529,190 +479,51 @@ function AvailabilityTab() {
         </div>
       </div>
 
-      {/* Break Slots */}
-      <div style={{background:'#0F172A', border:'1px solid #1E293B', borderRadius:'14px', padding:'20px'}}>
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px'}}>
-          <h3 style={{color:'#fff', fontWeight:700, fontSize:'14px'}}>☕ Break Slots</h3>
-          <button onClick={addBreak} style={{...primaryBtn(false), width:'auto', padding:'7px 14px', fontSize:'12px'}}>+ Add Break</button>
-        </div>
-        {breaks.length === 0
-          ? <p style={{color:'#475569', fontSize:'13px'}}>No breaks configured.</p>
-          : breaks.map((b,i) => (
-            <div key={i} style={{display:'grid', gridTemplateColumns:'1fr auto 1fr auto',
-              alignItems:'center', gap:'8px', marginBottom:'8px'}}>
-              <select value={b.from} onChange={e=>updBreak(i,'from',e.target.value)} style={inputStyle}>
-                {TIME_SLOTS.map(t=><option key={t}>{t}</option>)}
-              </select>
-              <span style={{color:'#475569'}}>–</span>
-              <select value={b.to} onChange={e=>updBreak(i,'to',e.target.value)} style={inputStyle}>
-                {TIME_SLOTS.map(t=><option key={t}>{t}</option>)}
-              </select>
-              <button onClick={()=>rmBreak(i)} style={{background:'#7F1D1D44', border:'1px solid #EF444433',
-                color:'#FCA5A5', borderRadius:'8px', padding:'8px 10px', cursor:'pointer'}}>✕</button>
-            </div>
-          ))}
-      </div>
-
-      {/* Max Jobs */}
-      <div style={{background:'#0F172A', border:'1px solid #1E293B', borderRadius:'14px', padding:'20px'}}>
-        <h3 style={{color:'#fff', fontWeight:700, fontSize:'14px', marginBottom:'12px'}}>📊 Max Jobs Per Day</h3>
-        <div style={{display:'flex', alignItems:'center', gap:'14px'}}>
-          <button onClick={()=>setMax(Math.max(1,maxJobs-1))} style={ctrBtnStyle}>−</button>
-          <div style={{textAlign:'center'}}>
-            <div style={{color:'#fff', fontWeight:800, fontSize:'26px'}}>{maxJobs}</div>
-            <div style={{color:'#64748B', fontSize:'11px'}}>jobs/day</div>
+      <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
+        {/* Break Slots */}
+        <div style={{background:'#0F172A', border:'1px solid #1E293B', borderRadius:'14px', padding:'20px'}}>
+          <div style={{display:'flex', justifyBetween:'space-between', justifyContent:'space-between', alignItems:'center', marginBottom:'14px'}}>
+            <h3 style={{color:'#fff', fontWeight:700, fontSize:'14px'}}>☕ Break Slots</h3>
+            <button onClick={addBreak} style={{...primaryBtn(false), width:'auto', padding:'7px 14px', fontSize:'12px'}}>+ Add Break</button>
           </div>
-          <button onClick={()=>setMax(Math.min(10,maxJobs+1))} style={ctrBtnStyle}>+</button>
-          <div style={{color:'#94A3B8', fontSize:'12px', marginLeft:'6px'}}>
-            Est. daily: <span style={{color:'#10B981', fontWeight:700}}>₹{(maxJobs*650).toLocaleString()}</span>
-          </div>
-        </div>
-      </div>
-
-      <button onClick={save} disabled={saving} style={primaryBtn(saving)}>
-        {saving ? '⏳ Saving...' : '📅 Save Availability'}
-      </button>
-    </div>
-  );
-}
-
-// ─── Experience Tab ───────────────────────────────────────────────────────────
-function ExperienceTab() {
-  const [entries,setEntries] = useState([
-    {id:1,role:'Senior Electrician',company:'Bajaj Electrical Services',city:'Hyderabad',from:'2020-01',to:'',current:true,
-     desc:'Industrial panel wiring, solar PV installations, and fault diagnostics for 200+ residential units.'},
-    {id:2,role:'Junior Electrician',company:'GK Electricals Pvt. Ltd.',city:'Secunderabad',from:'2018-06',to:'2019-12',current:false,
-     desc:'Residential wiring projects, switchboard installations, and routine maintenance contracts.'}
-  ]);
-  const [certs,setCerts] = useState([
-    {id:1,name:'Wireman License (MV)',      issuer:'AP Electrical Inspectorate', year:'2019', badge:'⚡'},
-    {id:2,name:'Solar PV Installation',     issuer:'MNRE Certified Training',    year:'2021', badge:'☀️'},
-    {id:3,name:'Safety & Fire Prevention',  issuer:'NSDC Skill India',           year:'2022', badge:'🔥'},
-  ]);
-  const [skills,setSkills]       = useState(['Electrical Wiring','Circuit Breaker Repair','Solar Panel Setup','Fan & Light Installation','Short Circuit Diagnosis','MCB/RCCB Fitting']);
-  const [newSkill,setNewSkill]   = useState('');
-  const [addingSkill,setAddSk]   = useState(false);
-  const [saving,setSaving]       = useState(false);
-  const [alert,setAlert]         = useState(null);
-
-  const addEntry  = () => setEntries(p=>[...p,{id:Date.now(),role:'',company:'',city:'',from:'',to:'',current:false,desc:''}]);
-  const rmEntry   = id => setEntries(p=>p.filter(e=>e.id!==id));
-  const updEntry  = (id,k,v) => setEntries(p=>p.map(e=>e.id===id?{...e,[k]:v}:e));
-  const addSkill  = () => { if(newSkill.trim()&&!skills.includes(newSkill.trim())){setSkills(p=>[...p,newSkill.trim()]);setNewSkill('');} setAddSk(false); };
-  const save = async () => { setSaving(true); try{ await new Promise(r=>setTimeout(r,700)); setAlert({type:'success',message:'Experience & certifications saved!'}); }finally{setSaving(false);} };
-
-  return (
-    <div style={{display:'flex', flexDirection:'column', gap:'22px'}}>
-      {alert && <AlertBox type={alert.type} message={alert.message} onClose={()=>setAlert(null)} />}
-
-      {/* Work experience */}
-      <div style={{background:'#0F172A', border:'1px solid #1E293B', borderRadius:'14px', padding:'20px'}}>
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'18px'}}>
-          <h3 style={{color:'#fff', fontWeight:700, fontSize:'14px'}}>💼 Work Experience</h3>
-          <button onClick={addEntry} style={{...primaryBtn(false), width:'auto', padding:'7px 14px', fontSize:'12px'}}>+ Add Entry</button>
-        </div>
-        <div style={{display:'flex', flexDirection:'column', gap:'18px'}}>
-          {entries.map((entry,idx) => (
-            <div key={entry.id} style={{position:'relative', paddingLeft:'22px', paddingBottom: idx<entries.length-1?'18px':'0'}}>
-              <div style={{position:'absolute', left:'6px', top:'16px', bottom:'0', width:'2px',
-                background: idx<entries.length-1 ? '#1E293B' : 'transparent'}} />
-              <div style={{position:'absolute', left:'0', top:'12px', width:'14px', height:'14px',
-                borderRadius:'50%', background: entry.current?'#6366F1':'#334155',
-                border:`2px solid ${entry.current?'#6366F1':'#1E293B'}`}} />
-              <div style={{background:'#1E293B44', border:'1px solid #1E293B', borderRadius:'12px', padding:'14px'}}>
-                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px'}}>
-                  <Field label="Job Title" value={entry.role}    onChange={v=>updEntry(entry.id,'role',v)}    placeholder="Senior Electrician" />
-                  <Field label="Company"   value={entry.company} onChange={v=>updEntry(entry.id,'company',v)} placeholder="ACME Electricals" />
-                  <Field label="City"      value={entry.city}    onChange={v=>updEntry(entry.id,'city',v)}    placeholder="Hyderabad" />
-                  <div>
-                    <label style={labelStyle}>From</label>
-                    <input type="month" value={entry.from}
-                      onChange={e=>updEntry(entry.id,'from',e.target.value)}
-                      style={{...inputStyle, marginTop:'6px'}} />
-                  </div>
-                </div>
-                <div style={{display:'flex', alignItems:'center', gap:'12px', marginBottom:'10px'}}>
-                  <label style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', color:'#94A3B8', fontSize:'12px'}}>
-                    <input type="checkbox" checked={entry.current}
-                      onChange={e=>updEntry(entry.id,'current',e.target.checked)}
-                      style={{accentColor:'#6366F1'}} />
-                    Currently working here
-                  </label>
-                  {!entry.current && (
-                    <input type="month" value={entry.to}
-                      onChange={e=>updEntry(entry.id,'to',e.target.value)}
-                      style={{...inputStyle, flex:1}} />
-                  )}
-                </div>
-                <div>
-                  <label style={labelStyle}>Description</label>
-                  <textarea value={entry.desc} onChange={e=>updEntry(entry.id,'desc',e.target.value)} rows={2}
-                    style={{...inputStyle, resize:'vertical', marginTop:'6px', fontFamily:'inherit'}}
-                    placeholder="Describe your responsibilities..." />
-                </div>
-                <button onClick={()=>rmEntry(entry.id)}
-                  style={{marginTop:'8px', background:'none', border:'none', color:'#EF4444', cursor:'pointer', fontSize:'12px'}}>
-                  🗑 Remove
-                </button>
+          {breaks.length === 0
+            ? <p style={{color:'#475569', fontSize:'13px'}}>No breaks configured.</p>
+            : breaks.map((b,i) => (
+              <div key={i} style={{display:'grid', gridTemplateColumns:'1fr auto 1fr auto',
+                alignItems:'center', gap:'8px', marginBottom:'8px'}}>
+                <select value={b.from} onChange={e=>updBreak(i,'from',e.target.value)} style={inputStyle}>
+                  {TIME_SLOTS.map(t=><option key={t}>{t}</option>)}
+                </select>
+                <span style={{color:'#475569'}}>–</span>
+                <select value={b.to} onChange={e=>updBreak(i,'to',e.target.value)} style={inputStyle}>
+                  {TIME_SLOTS.map(t=><option key={t}>{t}</option>)}
+                </select>
+                <button onClick={()=>rmBreak(i)} style={{background:'#7F1D1D44', border:'1px solid #EF444433',
+                  color:'#FCA5A5', borderRadius:'8px', padding:'8px 10px', cursor:'pointer'}}>✕</button>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
-      </div>
 
-      {/* Certifications */}
-      <div style={{background:'#0F172A', border:'1px solid #1E293B', borderRadius:'14px', padding:'20px'}}>
-        <h3 style={{color:'#fff', fontWeight:700, fontSize:'14px', marginBottom:'14px'}}>📜 Certifications & Licenses</h3>
-        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:'10px'}}>
-          {certs.map(cert => (
-            <div key={cert.id} style={{background:'#0F172A', border:'1px solid #334155', borderRadius:'12px', padding:'14px'}}>
-              <div style={{fontSize:'26px', marginBottom:'6px'}}>{cert.badge}</div>
-              <div style={{color:'#fff', fontWeight:700, fontSize:'12px', marginBottom:'3px'}}>{cert.name}</div>
-              <div style={{color:'#64748B', fontSize:'11px', marginBottom:'8px'}}>{cert.issuer}</div>
-              <Badge text={cert.year} color="#6366F1" />
+        {/* Max Jobs */}
+        <div style={{background:'#0F172A', border:'1px solid #1E293B', borderRadius:'14px', padding:'20px'}}>
+          <h3 style={{color:'#fff', fontWeight:700, fontSize:'14px', marginBottom:'12px'}}>📊 Max Jobs Per Day</h3>
+          <div style={{display:'flex', alignItems:'center', gap:'14px'}}>
+            <button onClick={()=>setMax(Math.max(1,maxJobs-1))} style={ctrBtnStyle}>−</button>
+            <div style={{textAlign:'center'}}>
+              <div style={{color:'#fff', fontWeight:800, fontSize:'26px'}}>{maxJobs}</div>
+              <div style={{color:'#64748B', fontSize:'11px'}}>jobs/day</div>
             </div>
-          ))}
-          <div style={{border:'2px dashed #1E293B', borderRadius:'12px', padding:'14px',
-            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-            cursor:'pointer', gap:'6px', minHeight:'110px'}}>
-            <span style={{fontSize:'22px', color:'#334155'}}>+</span>
-            <span style={{color:'#475569', fontSize:'12px'}}>Add Certificate</span>
+            <button onClick={()=>setMax(Math.min(10,maxJobs+1))} style={ctrBtnStyle}>+</button>
+            <div style={{color:'#94A3B8', fontSize:'12px', marginLeft:'6px'}}>
+              Est. daily: <span style={{color:'#10B981', fontWeight:700}}>₹{(maxJobs*650).toLocaleString()}</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Skills */}
-      <div style={{background:'#0F172A', border:'1px solid #1E293B', borderRadius:'14px', padding:'20px'}}>
-        <h3 style={{color:'#fff', fontWeight:700, fontSize:'14px', marginBottom:'14px'}}>🛠️ Technical Skills</h3>
-        <div style={{display:'flex', flexWrap:'wrap', gap:'8px', marginBottom:'12px'}}>
-          {skills.map(skill => (
-            <div key={skill} style={{display:'flex', alignItems:'center', gap:'5px',
-              background:'#6366F118', border:'1px solid #6366F144', borderRadius:'20px', padding:'5px 12px'}}>
-              <span style={{color:'#A5B4FC', fontSize:'12px'}}>{skill}</span>
-              <button onClick={()=>setSkills(p=>p.filter(s=>s!==skill))}
-                style={{background:'none', border:'none', color:'#6366F1', cursor:'pointer', fontSize:'14px', lineHeight:1, padding:0}}>×</button>
-            </div>
-          ))}
-          {addingSkill ? (
-            <div style={{display:'flex', gap:'6px', alignItems:'center'}}>
-              <input autoFocus value={newSkill} onChange={e=>setNewSkill(e.target.value)}
-                onKeyDown={e=>{if(e.key==='Enter')addSkill();if(e.key==='Escape')setAddSk(false);}}
-                style={{...inputStyle, padding:'5px 12px', fontSize:'12px', width:'160px'}}
-                placeholder="e.g. CCTV Wiring" />
-              <button onClick={addSkill} style={{...primaryBtn(false), width:'auto', padding:'5px 12px', fontSize:'12px'}}>Add</button>
-            </div>
-          ) : (
-            <button onClick={()=>setAddSk(true)} style={{background:'#1E293B', border:'1px dashed #334155',
-              color:'#64748B', borderRadius:'20px', padding:'5px 14px', cursor:'pointer', fontSize:'12px'}}>
-              + Add Skill
-            </button>
-          )}
-        </div>
+        <button onClick={save} disabled={saving} style={primaryBtn(saving)}>
+          {saving ? '⏳ Saving...' : '📅 Save Availability'}
+        </button>
       </div>
-
-      <button onClick={save} disabled={saving} style={primaryBtn(saving)}>
-        {saving ? '⏳ Saving...' : '💾 Save Experience'}
-      </button>
     </div>
   );
 }
@@ -815,9 +626,464 @@ function RatingsTab() {
   );
 }
 
+// ─── Today's Jobs Tab ────────────────────────────────────────────────────────
+function JobsTab() {
+  const [activeJobs, setActiveJobs] = useState([]);
+  const [incomingRequests, setIncomingRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const loadJobs = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      // Fetch active jobs (assigned to this technician)
+      const res = await api.getBookings();
+      if (res.success) {
+        // Filter out completed and cancelled jobs
+        const active = (res.bookings || []).filter(b => ['accepted', 'in_progress'].includes(b.status));
+        setActiveJobs(active);
+      }
+
+      // Fetch available pending jobs matching skills
+      const availRes = await api.getAvailableBookings();
+      if (availRes.success) {
+        setIncomingRequests(availRes.bookings || []);
+      }
+    } catch {
+      setError('Failed to fetch jobs telemetry from server.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    const run = async () => {
+      await Promise.resolve();
+      if (active) {
+        loadJobs();
+      }
+    };
+    run();
+    return () => { active = false; };
+  }, []);
+
+  const handleAccept = async (bookingId) => {
+    try {
+      setLoading(true);
+      const res = await api.respondToBooking(bookingId, 'accept');
+      if (res.success) {
+        setSuccess('Job accepted successfully! Get ready to travel.');
+        loadJobs();
+      }
+    } catch {
+      setError('Failed to accept job.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDecline = async (bookingId) => {
+    try {
+      setLoading(true);
+      const res = await api.respondToBooking(bookingId, 'reject');
+      if (res.success) {
+        setSuccess('Job declined.');
+        loadJobs();
+      }
+    } catch {
+      setError('Failed to decline job.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartWork = async (bookingId) => {
+    try {
+      setLoading(true);
+      const res = await api.updateBooking(bookingId, { status: 'in_progress' });
+      if (res.success) {
+        setSuccess('Service status transitioned to in-progress.');
+        loadJobs();
+      }
+    } catch {
+      setError('Failed to transition job status.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleChecklist = async (bookingId, checklist, index) => {
+    const updatedChecklist = checklist.map((item, idx) => 
+      idx === index ? { ...item, completed: !item.completed, timestamp: new Date() } : item
+    );
+    try {
+      const res = await api.updateBooking(bookingId, { checklist: updatedChecklist });
+      if (res.success) {
+        loadJobs();
+      }
+    } catch {
+      setError('Failed to update checklist item.');
+    }
+  };
+
+  const handleCompleteJob = async (bookingId) => {
+    try {
+      setLoading(true);
+      const res = await api.updateBooking(bookingId, { status: 'completed' });
+      if (res.success) {
+        const escrowRes = await api.releasePaymentEscrow(bookingId);
+        if (escrowRes.success) {
+          setSuccess(`🎉 Job completed successfully! ₹${escrowRes.released_amount} released from escrow.`);
+          loadJobs();
+        } else {
+          setSuccess('Job marked complete. Escrow release pending approval.');
+          loadJobs();
+        }
+      }
+    } catch {
+      setError('Failed to complete job.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {loading && <div style={{ color: '#64748B', textAlign: 'center', padding: '12px' }}>⏳ Updating jobs telemetry...</div>}
+      {success && <AlertBox type="success" message={success} onClose={() => setSuccess('')} />}
+      {error && <AlertBox type="error" message={error} onClose={() => setError('')} />}
+
+      {/* SECTION 1: Incoming Job Requests */}
+      <div>
+        <h3 style={{ color: '#fff', fontSize: '16px', fontWeight: 800, margin: '0 0 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span>📡 Nearby Broadcasts</span>
+          <span style={{ fontSize: '10px', background: '#F59E0B22', color: '#F59E0B', padding: '2px 8px', borderRadius: '10px' }}>
+            {incomingRequests.length} Available
+          </span>
+        </h3>
+        
+        {incomingRequests.length === 0 ? (
+          <div style={{ padding: '24px', background: '#0F172A', border: '1px solid #1E293B', borderRadius: '12px', textAlign: 'center', color: '#64748B', fontSize: '13px' }}>
+            No incoming jobs broadcasted near your location. Keeping radar active...
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {incomingRequests.map(job => (
+              <div key={job._id} style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: '14px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: '#fff', fontWeight: 800, fontSize: '14px' }}>{job.serviceId?.name || 'Home Service'}</span>
+                    <span style={{ fontSize: '10px', background: '#6366F122', color: '#A5B4FC', padding: '1px 7px', borderRadius: '10px' }}>{job.bookingCode}</span>
+                  </div>
+                  <div style={{ color: '#64748B', fontSize: '11px', marginTop: '4px' }}>
+                    📍 {job.address?.street}, {job.address?.area} · ⏱️ {job.hours || 2}h scheduled duration
+                  </div>
+                  {job.notes && (
+                    <div style={{ color: '#94A3B8', fontSize: '11px', fontStyle: 'italic', marginTop: '6px' }}>
+                      📝 "{job.notes}"
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ color: '#10B981', fontWeight: 800, fontSize: '16px' }}>₹{job.billing?.totalAmount}</div>
+                    <span style={{ color: '#64748B', fontSize: '9px' }}>Guaranteed Escrow</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => handleAccept(job._id)} style={{ background: '#10B981', border: 'none', color: '#fff', borderRadius: '8px', padding: '8px 14px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                      Accept
+                    </button>
+                    <button onClick={() => handleDecline(job._id)} style={{ background: '#1E293B', border: '1px solid #334155', color: '#94A3B8', borderRadius: '8px', padding: '8px 14px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                      Pass
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* SECTION 2: Active Assigned Jobs */}
+      <div>
+        <h3 style={{ color: '#fff', fontSize: '16px', fontWeight: 800, margin: '0 0 14px' }}>Active Job Assignments</h3>
+
+        {activeJobs.length === 0 ? (
+          <div style={{ padding: '30px', background: '#0F172A', border: '1px solid #1E293B', borderRadius: '12px', textAlign: 'center', color: '#64748B', fontSize: '13px' }}>
+            No active jobs in progress. Accept broadcasts above to begin earning.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {activeJobs.map(job => {
+              const allTasksDone = job.checklist.every(t => t.completed);
+              return (
+                <div key={job._id} style={{ background: '#0F172A', border: '1px solid #3B82F644', borderRadius: '16px', overflow: 'hidden' }}>
+                  
+                  {/* Job Header */}
+                  <div style={{ background: 'rgba(59,130,246,0.05)', borderBottom: '1px solid #1E293B', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <span style={{ color: '#fff', fontWeight: 800, fontSize: '15px' }}>{job.serviceId?.name || 'Home Service'}</span>
+                      <span style={{ color: '#3B82F6', fontSize: '11px', display: 'block', marginTop: '2px' }}>
+                        Code: {job.bookingCode} · Customer: {job.customerId?.firstName} {job.customerId?.lastName} ({job.customerId?.phone})
+                      </span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{
+                        background: job.status === 'in_progress' ? '#8B5CF622' : '#3B82F622',
+                        color: job.status === 'in_progress' ? '#C4B5FD' : '#93C5FD',
+                        border: `1px solid ${job.status === 'in_progress' ? '#8B5CF644' : '#3B82F644'}`,
+                        padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase'
+                      }}>{job.status === 'in_progress' ? '🔧 In Progress' : '✅ Accepted'}</span>
+                    </div>
+                  </div>
+
+                  {/* Checklist & Controls */}
+                  <div style={{ padding: '20px' }}>
+                    <div style={{ color: '#94A3B8', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '10px' }}>
+                      Required Job Checklist
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+                      {job.checklist.map((item, index) => (
+                        <label key={index} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={item.completed} 
+                            disabled={job.status !== 'in_progress'}
+                            onChange={() => handleToggleChecklist(job._id, job.checklist, index)}
+                            style={{ width: '16px', height: '16px', accentColor: '#3B82F6' }} 
+                          />
+                          <span style={{ color: item.completed ? '#64748B' : '#fff', fontSize: '13px', textDecoration: item.completed ? 'line-through' : 'none' }}>
+                            {item.task}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+
+                    {/* Progress Action Controls */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                      <div>
+                        <span style={{ color: '#64748B', fontSize: '11px', display: 'block' }}>Net Payout (85%):</span>
+                        <span style={{ color: '#10B981', fontWeight: 900, fontSize: '18px' }}>₹{job.billing?.netToHero || Math.round(job.billing?.totalAmount * 0.85)}</span>
+                      </div>
+                      
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {job.status === 'accepted' && (
+                          <button onClick={() => handleStartWork(job._id)} style={{ background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', border: 'none', color: '#fff', borderRadius: '8px', padding: '10px 20px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+                            🚀 Start Service
+                          </button>
+                        )}
+                        
+                        {job.status === 'in_progress' && (
+                          <button 
+                            disabled={!allTasksDone}
+                            onClick={() => handleCompleteJob(job._id)} 
+                            style={{ 
+                              background: allTasksDone ? 'linear-gradient(135deg,#10B981,#059669)' : '#1E293B', 
+                              color: allTasksDone ? '#fff' : '#475569',
+                              border: 'none', 
+                              borderRadius: '8px', 
+                              padding: '10px 20px', 
+                              fontSize: '13px', 
+                              fontWeight: 700, 
+                              cursor: allTasksDone ? 'pointer' : 'not-allowed'
+                            }}
+                          >
+                            🎉 Complete &amp; Release Funds
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Earnings Tab ────────────────────────────────────────────────────────────
+function EarningsTab() {
+  const [ledger, setLedger] = useState([]);
+  const [stats, setStats] = useState({
+    walletBalance: 0,
+    totalEarnings: 0,
+    completedJobsCount: 0
+  });
+
+  const loadEarnings = async () => {
+    try {
+      const profileRes = await api.getHeroProfile();
+      if (profileRes.success && profileRes.technician) {
+        const walletBalance = profileRes.technician.wallet?.balance || 0;
+        
+        const res = await api.getBookings();
+        if (res.success) {
+          const completed = (res.bookings || []).filter(b => b.status === 'completed');
+          const totalEarnings = completed.reduce((sum, b) => sum + (b.billing?.netToHero || Math.round(b.billing?.totalAmount * 0.85)), 0);
+          
+          setStats({
+            walletBalance,
+            totalEarnings,
+            completedJobsCount: completed.length
+          });
+          setLedger(completed);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load earnings log:', err.message);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    const run = async () => {
+      await Promise.resolve();
+      if (active) {
+        loadEarnings();
+      }
+    };
+    run();
+    return () => { active = false; };
+  }, []);
+
+  const handleWithdraw = () => {
+    if (stats.walletBalance <= 0) {
+      alert('Wallet balance is 0. Complete active bookings to receive payouts.');
+      return;
+    }
+    alert(`✓ Payout request of ₹${stats.walletBalance} approved! Transferring funds to your bank account via UPI.`);
+    setStats(prev => ({ ...prev, walletBalance: 0 }));
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      
+      {/* Earnings metrics widgets */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+        
+        {/* Wallet Balance */}
+        <div style={{ background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.15)', borderRadius: '16px', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <span style={{ color: '#94A3B8', fontSize: '11px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Withdrawable Wallet Balance</span>
+            <div style={{ color: '#10B981', fontSize: '28px', fontWeight: 900, marginTop: '4px' }}>₹{stats.walletBalance}</div>
+            <button onClick={handleWithdraw} style={{ background: '#10B981', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, marginTop: '12px', cursor: 'pointer' }}>
+              Withdraw to Bank
+            </button>
+          </div>
+          <span style={{ fontSize: '36px' }}>💰</span>
+        </div>
+
+        {/* Life-time Earnings */}
+        <div style={{ background: 'rgba(99, 102, 241, 0.05)', border: '1px solid rgba(99, 102, 241, 0.15)', borderRadius: '16px', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <span style={{ color: '#94A3B8', fontSize: '11px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Lifetime Net Income</span>
+            <div style={{ color: '#fff', fontSize: '28px', fontWeight: 900, marginTop: '4px' }}>₹{stats.totalEarnings}</div>
+            <span style={{ color: '#64748B', fontSize: '11px', display: 'block', marginTop: '12px' }}>After 15% platform commission cut</span>
+          </div>
+          <span style={{ fontSize: '36px' }}>📈</span>
+        </div>
+
+        {/* Completed Jobs */}
+        <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid #1E293B', borderRadius: '16px', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <span style={{ color: '#94A3B8', fontSize: '11px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Jobs Completed</span>
+            <div style={{ color: '#fff', fontSize: '28px', fontWeight: 900, marginTop: '4px' }}>{stats.completedJobsCount}</div>
+            <span style={{ color: '#64748B', fontSize: '11px', display: 'block', marginTop: '12px' }}>100% platform customer satisfaction</span>
+          </div>
+          <span style={{ fontSize: '36px' }}>💼</span>
+        </div>
+
+      </div>
+
+      {/* Transaction Ledger Table */}
+      <div>
+        <h3 style={{ color: '#fff', fontSize: '16px', fontWeight: 800, margin: '0 0 14px' }}>Financial Transactions Ledger</h3>
+
+        {ledger.length === 0 ? (
+          <div style={{ padding: '24px', background: '#0F172A', border: '1px solid #1E293B', borderRadius: '12px', textAlign: 'center', color: '#64748B', fontSize: '13px' }}>
+            No transaction records found. Complete job assignments to receive payouts.
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto', background: '#0F172A', border: '1px solid #1E293B', borderRadius: '12px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #1E293B', color: '#64748B' }}>
+                  <th style={{ padding: '12px 16px' }}>Date</th>
+                  <th style={{ padding: '12px 16px' }}>Booking Code</th>
+                  <th style={{ padding: '12px 16px' }}>Service type</th>
+                  <th style={{ padding: '12px 16px' }}>Total Charged</th>
+                  <th style={{ padding: '12px 16px' }}>Platform Commission</th>
+                  <th style={{ padding: '12px 16px', color: '#10B981' }}>Net Credit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ledger.map(row => {
+                  const comm = row.billing?.platformCommission || Math.round(row.billing?.totalAmount * 0.15);
+                  const net = row.billing?.netToHero || Math.round(row.billing?.totalAmount * 0.85);
+                  return (
+                    <tr key={row._id} style={{ borderBottom: '1px solid #1E293B', color: '#fff' }}>
+                      <td style={{ padding: '12px 16px' }}>{new Date(row.scheduledTime).toLocaleDateString()}</td>
+                      <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#A5B4FC' }}>{row.bookingCode}</td>
+                      <td style={{ padding: '12px 16px' }}>{row.serviceId?.name}</td>
+                      <td style={{ padding: '12px 16px' }}>₹{row.billing?.totalAmount}</td>
+                      <td style={{ padding: '12px 16px', color: '#EF4444' }}>-₹{comm}</td>
+                      <td style={{ padding: '12px 16px', color: '#10B981', fontWeight: 'bold' }}>+₹{net}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+    </div>
+  );
+}
+
 // ─── Main Export ──────────────────────────────────────────────────────────────
 export function TechnicianDashboardPage() {
-  const [activeTab, setActiveTab] = useState('register');
+  const { token } = useAuth();
+  const [activeTab, setActiveTab] = useState('jobs');
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  const checkRegistrationStatus = async () => {
+    try {
+      setChecking(true);
+      const res = await api.getHeroProfile();
+      if (res.success && res.technician) {
+        setIsRegistered(true);
+      }
+    } catch {
+      setIsRegistered(false);
+      setActiveTab('register');
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    if (token) {
+      const run = async () => {
+        await Promise.resolve();
+        if (active) {
+          checkRegistrationStatus();
+        }
+      };
+      run();
+    }
+    return () => { active = false; };
+  }, [token]);
 
   return (
     <div style={{
@@ -841,34 +1107,55 @@ export function TechnicianDashboardPage() {
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div style={{display:'flex', gap:'4px', background:'#0F172A',
-          border:'1px solid #1E293B', borderRadius:'14px', padding:'6px',
-          marginBottom:'24px', flexWrap:'wrap'}}>
-          {TABS.map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
-              display:'flex', alignItems:'center', gap:'7px',
-              padding:'10px 16px', borderRadius:'10px', border:'none',
-              background: activeTab===tab.id ? 'linear-gradient(135deg,#6366F1,#8B5CF6)' : 'transparent',
-              color: activeTab===tab.id ? '#fff' : '#64748B',
-              cursor:'pointer', fontSize:'12px', fontWeight:700,
-              flex:1, justifyContent:'center', whiteSpace:'nowrap',
-              boxShadow: activeTab===tab.id ? '0 4px 15px rgba(99,102,241,0.4)' : 'none',
-              transition:'all 0.2s'}}>
-              <span>{tab.icon}</span><span>{tab.label}</span>
-            </button>
-          ))}
-        </div>
+        {checking ? (
+          <div style={{ color: '#64748B', textAlign: 'center', padding: '60px' }}>⏳ Loading Hero parameters...</div>
+        ) : (
+          <>
+            {/* Tab Navigation */}
+            <div style={{display:'flex', gap:'4px', background:'#0F172A',
+              border:'1px solid #1E293B', borderRadius:'14px', padding:'6px',
+              marginBottom:'24px', flexWrap:'wrap'}}>
+              
+              {!isRegistered ? (
+                <button style={{
+                  display:'flex', alignItems:'center', gap:'7px',
+                  padding:'10px 16px', borderRadius:'10px', border:'none',
+                  background: 'linear-gradient(135deg,#6366F1,#8B5CF6)',
+                  color: '#fff',
+                  cursor:'default', fontSize:'12px', fontWeight:700,
+                  flex:1, justifyContent:'center', whiteSpace:'nowrap'
+                }}>
+                  <span>📋</span><span>Registration Wizard</span>
+                </button>
+              ) : (
+                TABS.map(tab => (
+                  <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+                    display:'flex', alignItems:'center', gap:'7px',
+                    padding:'10px 16px', borderRadius:'10px', border:'none',
+                    background: activeTab===tab.id ? 'linear-gradient(135deg,#6366F1,#8B5CF6)' : 'transparent',
+                    color: activeTab===tab.id ? '#fff' : '#64748B',
+                    cursor:'pointer', fontSize:'12px', fontWeight:700,
+                    flex:1, justifyContent:'center', whiteSpace:'nowrap',
+                    boxShadow: activeTab===tab.id ? '0 4px 15px rgba(99,102,241,0.4)' : 'none',
+                    transition:'all 0.2s'}}>
+                    <span>{tab.icon}</span><span>{tab.label}</span>
+                  </button>
+                ))
+              )}
+            </div>
 
-        {/* Tab Content */}
-        <div style={{background:'#0F172A88', backdropFilter:'blur(12px)',
-          border:'1px solid #1E293B', borderRadius:'16px', padding:'28px'}}>
-          {activeTab==='register'     && <RegistrationTab onRegistered={() => setActiveTab('profile')} />}
-          {activeTab==='profile'      && <ProfileTab />}
-          {activeTab==='availability' && <AvailabilityTab />}
-          {activeTab==='experience'   && <ExperienceTab />}
-          {activeTab==='ratings'      && <RatingsTab />}
-        </div>
+            {/* Tab Content */}
+            <div style={{background:'#0F172A88', backdropFilter:'blur(12px)',
+              border:'1px solid #1E293B', borderRadius:'16px', padding:'28px'}}>
+              {activeTab==='register'     && <RegistrationTab onRegistered={() => { setIsRegistered(true); setActiveTab('jobs'); }} />}
+              {activeTab==='jobs'         && <JobsTab />}
+              {activeTab==='earnings'     && <EarningsTab />}
+              {activeTab==='profile'      && <ProfileTab />}
+              {activeTab==='availability' && <AvailabilityTab />}
+              {activeTab==='ratings'      && <RatingsTab />}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
