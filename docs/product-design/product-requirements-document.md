@@ -1,130 +1,95 @@
-# Product Requirements Document (PRD): HomeHero
+# Product Requirements Document (PRD) - HomeHero
 
-**Document Status:** Approved  
-**Author:** Senior Product Manager, HomeHero Technologies Pvt. Ltd.  
-**Target Release:** MVP (Phase 1)  
-**Date:** June 26, 2026  
-
----
-
-## 1. Product Overview & Objectives
-HomeHero is a hyperlocal, on-demand home services platform for India. It connects customers in high-density urban residential areas with background-verified service professionals ("Heroes") in under 30 minutes.
-
-### Objectives:
-*   Standardize pricing and service quality for emergency repairs (Electrician, Plumber, Carpenter, AC Repair).
-*   Create a secure transaction loop using Razorpay payment escrow holds.
-*   Enforce service accountability via mandatory photo verification checklists in the client and partner apps.
-*   Empower gig workers with lower commissions (15%) and same-day UPI payouts.
+**Prepared by**: Principal Product Manager  
+**Status**: Approved (MVP Ready)  
+**Target Release**: Phase 1 (Hyperlocal Launch)
 
 ---
 
-## 2. User Roles
-1.  **Customer:** Urban residents who need home services, book dispatches, pay upfront escrow holds, track technician arrival, and sign off on completion.
-2.  **Technician (Hero):** Independent service professionals who toggle online status, accept job broadcasts, follow task checklists, upload verification photos, and withdraw earnings.
-3.  **Administrator:** Operations team members who verify technician credentials in a vetting queue, adjust pricing surge settings, and resolve billing disputes.
+## 1. Executive Summary & Product Vision
+
+### 1.1 Executive Summary
+HomeHero is a hyperlocal, on-demand marketplace connecting urban homeowners with vetted handymen (electricians, plumbers, carpenters, and AC technicians) for emergency home repairs. By integrating real-time proximity matchmaking, upfront pricing calculators, and secure Razorpay payment escrow holds, HomeHero removes transaction friction and builds trust in the unorganized home maintenance sector.
+
+### 1.2 Product Vision
+To build the most trusted and efficient residential maintenance infrastructure network in Tier-1 cities, transitioning from reactive emergency services to proactive smart home anomaly preventions.
+
+### 1.3 Product Mission
+To deliver quality repairs within 30 minutes at transparent rates, while providing independent technicians with lower commissions and immediate payout clearances.
 
 ---
 
-## 3. Functional Requirements
+## 2. Target Audience & Customer Personas
 
-| ID | Module | Feature Description | Priority |
-| :--- | :--- | :--- | :--- |
-| **FR-1** | User Auth | Secure mobile sign-up with OTP verification and JWT role-based session guards. | P0 |
-| **FR-2** | Estimation | Real-time billing estimation based on service categories, base rates, and active surge multipliers. | P0 |
-| **FR-3** | Payments | Integrate Razorpay Checkout to hold payment in escrow upon booking creation. | P0 |
-| **FR-4** | Dispatcher | Geospatial broadcast loop (Socket.io) targeting active technicians within a 5km radius. | P0 |
-| **FR-5** | Telemetry | Real-time GPS location tracking of matched technicians on the customer map interface. | P1 |
-| **FR-6** | Checklists | Mandatory pre-work and post-work checklist items with photo upload verification. | P0 |
-| **FR-7** | Payouts | Release escrow funds to the partner wallet upon customer confirmation, allowing instant UPI withdrawals. | P0 |
-| **FR-8** | Vetting Console | Admin dashboard showing pending technician Aadhaar uploads for manual approval. | P0 |
-| **FR-9** | Surge Controls | Admin panel sliders to adjust holiday, monsoon rain, and night surcharge pricing. | P1 |
+- **Time-Poor Homeowners**: Busy dual-income families seeking immediate, trusted repair dispatches during emergency household crises.
+- **Safety-First Residents**: Elderly residents and single homemakers who prioritize background-checked, vetted workers.
+- **Gig Professionals (Heroes)**: Independent technicians seeking consistent jobs, marketing-free client acquisitions, and instant payout deposits.
 
 ---
 
-## 4. Non-Functional Requirements
+## 3. User Roles & Permissions Matrix
 
-### 1. Performance & Latency
-*   **Matching Latency:** Geospatial dispatch query must select and send offers to nearby technicians in under 3 seconds.
-*   **GPS Refresh Rate:** Technician location coordinates must update on the customer tracking map every 5 seconds.
-*   **Page Load SLA:** Main dashboard views must render in under 1.5 seconds on a standard 3G connection.
-
-### 2. Security & Compliance
-*   **KYC Encryption:** Aadhaar numbers and verification files must be encrypted in transit (HTTPS) and at rest (AES-256).
-*   **Session Guards:** Restrict access to technician and admin dashboard controllers using role-based JWT validations.
-*   **Escrow Security:** All payouts and refunds must be authenticated via HMAC-SHA256 signature verification.
-
-### 3. Scalability & Availability
-*   **System Availability:** Core API servers must maintain 99.9% uptime.
-*   **Concurrent Bookings:** The geospatial engine must support up to 5,000 active matching loops per city.
-
----
-
-## 5. Detailed User Stories & Acceptance Criteria
-
-### User Story 1: Pre-Authorized Escrow Checkout
-**As a** customer,  
-**I want to** pay the service estimate upfront via UPI or Card,  
-**So that** my booking is secured and held in escrow while a technician is matched.
-
-#### Acceptance Criteria:
-1.  **Given** the customer completes their service configuration,  
-    **When** they click "Pre-authorize Booking",  
-    **Then** the app must open the Razorpay Checkout overlay for the estimated total.
-2.  **Given** the Razorpay signature verification is successful,  
-    **When** the webhook triggers,  
-    **Then** the database booking status must update to `matched` and create an escrow record with status `held_in_escrow`.
-
----
-
-### User Story 2: Geospatial Dispatch Broadcast
-**As a** technician,  
-**I want to** receive a real-time job offer alert when I am online and near a customer request,  
-**So that** I can review the earnings and accept the work.
-
-#### Acceptance Criteria:
-1.  **Given** the technician's working mode switch is toggled "Online",  
-    **When** a nearby booking is created,  
-    **Then** the app must show a 90-second countdown alert showing service type, customer address, and payout amount.
-2.  **Given** the technician accepts the job within 90 seconds,  
-    **When** the server processes the response,  
-    **Then** the dispatch loop must end, lock the booking to this technician, and update the status to `accepted`.
-
----
-
-### User Story 3: Verification Checklist Photo Uploads
-**As a** technician,  
-**I want to** upload pre-work and post-work photos for required tasks,  
-**So that** the work is verified and I am protected against false complaints.
-
-#### Acceptance Criteria:
-1.  **Given** the booking status is `in_progress`,  
-    **When** the technician performs the service,  
-    **Then** they must upload at least one photo for each milestone (e.g. pre-inspection, completed repair).
-2.  **Given** any checklist task is incomplete,  
-    **When** the technician tries to click "Complete Service",  
-    **Then** the app must block the action and show a validation warning.
-
----
-
-### User Story 4: Manual Escrow Release Control
-**As an** administrator,  
-**I want to** manually release escrow payouts or trigger refunds,  
-**So that** I can quickly resolve customer billing disputes.
-
-#### Acceptance Criteria:
-1.  **Given** the booking is in `completed` status but the payout is still held,  
-    **When** the admin clicks "Release Payout",  
-    **Then** the system must invoke the payment gateway, update the escrow status to `released`, and credit the technician’s wallet.
-
----
-
-## 6. Release Feature Matrix
-
-| Feature Module | MVP (Phase 1) | Future Release (Phase 2+) |
+| User Role | Permissions Description | Allowed Actions |
 | :--- | :--- | :--- |
-| **Emergency Services** | Electrician, Plumber, Carpenter, AC Repair | Maid, Cook, Babysitter, Deep Cleaning, Elder Care |
-| **Escrow Management** | Auto-release on customer sign-off | 24h auto-release fallback rules |
-| **Surge Pricing** | Holiday, monsoon rain, night multipliers | Real-time demand and technician density surge |
-| **Work Vetting** | Manual Aadhaar verification queues | Automated UIDAI (Aadhaar) API integrations |
-| **Safety Integration** | Local map tracking | Safety SOS panic button (Police + Security alert) |
-| **Customer Loyalty** | Simple referral credits | Subscription plan passes ("HeroPass") |
+| **Customer** | End user seeking maintenance repairs. | Create booking, pay escrow hold, track live GPS, release escrow, submit review. |
+| **Technician (Hero)** | Vetted gig provider fulfilling requests. | Toggle availability (`isOnline`), accept/reject dispatches, view/update checklists, withdraw earnings. |
+| **Admin** | Internal operations and support staff. | Approve/suspend user accounts, vet technician profiles, adjust pricing surge settings, manually mediate payment holds. |
+
+---
+
+## 4. Operational Flows & State Machines
+
+### 4.1 Customer Service Flow
+```mermaid
+graph TD
+  A[Category Selection] --> B[Upfront Estimate calculation]
+  B --> C[Razorpay Escrow Payment Hold]
+  C --> D[System Matches Proximity Hero]
+  D --> E[Live Telemetry Tracking]
+  E --> F[OTP Job Verification]
+  F --> G[Repairs & Payout Release]
+```
+
+### 4.2 Booking State Machine Workflow
+```
+[Pending (Hold Payment)] ──> [Accepted (Tech matched)] ──> [Active (OTP entered)] ──> [Completed (Sign-off)] ──> [Released (Wallet Payout)]
+```
+
+*   **Pending**: Customer pays the pre-authorized hold; search queries are dispatched.
+*   **Accepted**: A nearby technician confirms acceptance within the 90-second countdown.
+*   **Active (In-Progress)**: Technician arrives and enters the 4-digit start OTP provided by the customer.
+*   **Completed**: Technician completes checklist, customer reviews post-job photo uploads, and signs off. Payout releases instantly to the technician's wallet.
+
+---
+
+## 5. Functional & Non-Functional Requirements
+
+### 5.1 Functional Requirements (P0 Features)
+- **FR-1: JWT Mobile Auth**: Phone signup with 6-digit OTP verification and role-based session tokens.
+- **FR-2: Upfront Billing Estimator**: Flat base fees + hourly labor calculation with active surge multipliers.
+- **FR-3: Razorpay Escrow Integration**: Pre-authorized payment holds before matches, HMAC-SHA256 signature verifications, and instant splits.
+- **FR-4: Proximity Matchmaker**: Geospatial query matching available technicians within 15 km coordinates.
+- **FR-5: Live GPS Tracker**: Socket.io telemetry updating technician markers every 5 seconds.
+- **FR-6: Checklist Photos**: Mandatory pre-work and post-work verification photo uploads.
+
+### 5.2 Non-Functional Requirements (Performance & Security)
+- **Response Latency SLA**: Geospatial dispatch queries must select and send offers to technicians in under 3 seconds.
+- **Data Compliance**: Aadhaar uploads and bank account payout routing profiles must be encrypted at rest (AES-256).
+- **Escrow Integrity Check**: Webhook endpoints must reject un-signed checkout confirmations.
+
+---
+
+## 6. Success Metrics & Key Performance Indicators (KPIs)
+
+*   **Match Fulfillment Ratio (MFR)**: Target $>85\%$ of booking requests matched within 3 minutes.
+*   **Customer Acquisition Cost (CAC) Payback**: Target $<2$ completed bookings to recoup customer acquisition costs.
+*   **Average Resolution Time**: Goal is $<45$ minutes from booking creation to job completion.
+*   **Supply Retention Rate**: Keep monthly technician churn rate $<5\%$.
+
+---
+
+## 7. Future Growth Roadmap (v2.0+)
+
+- **IoT Anomaly Detection Integration**: Implement smart water flow and power meter integrations to detect anomalies and auto-dispatch technicians before emergencies occur.
+- **Automated Aadhaar Approvals**: Move from manual admin queues to instant UIDAI API background checks.
+- **Team B2B Maintenance Contracts**: Support subscription-based service passes for corporate housing networks.
