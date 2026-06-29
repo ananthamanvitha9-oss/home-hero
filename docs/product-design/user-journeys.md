@@ -1,33 +1,84 @@
-# HomeHero - User Journeys Mapping
+# HomeHero - User Journeys & Flowchart Specifications
 
-This document maps the user journeys for the primary personas of the HomeHero platform.
-
----
-
-## 1. Customer Emergency Booking Journey
-
-```
-[Need Plumber] ──> [Select Category] ──> [Estimate Price] ──> [Checkout (Escrow)] ──> [Track Arrival] ──> [OTP Checkin] ──> [Job Sign-off]
-```
-
-*   **Step 1: Need Identification**: Priya experiences an active pipe leak under her sink. She feels stressed and needs an immediate solution.
-*   **Step 2: Category Discovery**: She opens the HomeHero app, clicks "Plumber", and sees the transparent base and hourly rates.
-*   **Step 3: Pre-Authorized Checkout**: Priya agrees to the estimate. She pays upfront via UPI; her funds are held securely in escrow.
-*   **Step 4: Real-time Dispatch**: The system matches the nearest plumber (Ramesh). Priya tracks Ramesh's real-time arrival on the map.
-*   **Step 5: Check-in**: Ramesh arrives, inspects the leak, and Priya provides the 4-digit start OTP to begin the job.
-*   **Step 6: Completion & Feedback**: Ramesh resolves the leak. Priya signs off on the checklist, releasing the escrow payment, and leaves a 5-star review.
+This document defines the end-to-end user journeys for the **Customer**, **Technician**, and **Administrator** personas.
 
 ---
 
-## 2. Technician (Hero) Dispatch Fulfillment Journey
+## 1. Customer User Journey
 
-```
-[Go Online] ──> [Receive Alert] ──> [Accept Job] ──> [Navigate (GPS)] ──> [Start with OTP] ──> [Complete & Upload] ──> [Instant Cashout]
+### 1.1 Customer Flow Diagram
+```mermaid
+flowchart TD
+  A[First Visit / Landing] --> B[Enter Phone Number]
+  B --> C{OTP Verified?}
+  C -- No --> B
+  C -- Yes --> D[Select Service Category]
+  D --> E[Configure Address & Details]
+  E --> F[Generate Estimate Quote]
+  F --> G{Accept Estimate?}
+  G -- No --> D
+  G -- Yes --> H[Razorpay Escrow Payment Checkout]
+  H --> I{Payment Successful?}
+  I -- No --> H
+  I -- Yes --> J[Dispatched Search Matchmaker]
+  J --> K{Technician Found?}
+  K -- No --> L[Automated Escrow Refund]
+  K -- Yes --> M[Live Tracking & OTP Generation]
+  M --> N[Provide OTP to Technician]
+  N --> O[Repairs Complete & Sign-off]
+  O --> P[Release Escrow & Rate Service]
 ```
 
-*   **Step 1: Go Online**: Ramesh toggles the availability switch in his partner app to "Online".
-*   **Step 2: Receive Job Alert**: Ramesh receives a push notification and audio alert for a plumbing job 2.5 km away, showing a ₹450 estimated payout.
-*   **Step 3: Accept Job**: Ramesh clicks "Accept" within the 90-second window.
-*   **Step 4: Navigate**: The app opens Google Maps navigation directing Ramesh to Priya's address.
-*   **Step 5: Verify & Begin**: Upon arrival, Ramesh gets the start OTP from Priya, enters it, and the status changes to `active`.
-*   **Step 6: Resolve & Release**: Ramesh completes the repair, uploads a post-job photo, and submits the checklist. The customer signs off, and the funds are instantly deposited into Ramesh's wallet.
+### 1.2 Customer Pain Points, Decisions, & Edge Cases
+*   **Edge Case: No Match Found**: If no technician accepts the job within 3 minutes, the platform cancels the booking and triggers an automatic refund to prevent funds from being locked in escrow.
+*   **Error Recovery: Invalid OTP**: If the technician enters an incorrect OTP, the customer app prompts the customer to regenerate or view their secure start OTP on screen.
+
+---
+
+## 2. Technician (Hero) User Journey
+
+### 2.1 Technician Flow Diagram
+```mermaid
+flowchart TD
+  A[Open App & Log in] --> B[Toggle Online Status]
+  B --> C[Standby State]
+  C --> D{Job Dispatched Nearby?}
+  D -- Yes --> E[90-second Countdown Alert]
+  E --> F{Accept Job?}
+  F -- No --> G[Re-dispatch to Next Hero]
+  F -- Yes --> H[Open Maps Navigation]
+  H --> I[Arrive & Input Customer OTP]
+  I --> J{OTP Verified?}
+  J -- No --> I
+  J -- Yes --> K[Perform Checklist Tasks]
+  K --> L[Upload Post-job Photos]
+  L --> M[Customer Sign-off Confirmation]
+  M --> N[Instant Wallet Payout Deposit]
+  N --> O[Withdraw to UPI]
+```
+
+### 2.2 Technician Edge Cases & Decisions
+*   **Edge Case: Customer Absent**: If the technician arrives but the customer is absent and does not answer their phone, the technician can trigger a "Customer No-Show" cancellation request after waiting 10 minutes, collecting a flat inconvenience fee.
+*   **Error Recovery: Upload Failures**: If poor network coverage blocks checklist photo uploads, the app saves the media locally and syncs it automatically once the connection is restored.
+
+---
+
+## 3. Administrator User Journey
+
+### 3.1 Admin Flow Diagram
+```mermaid
+flowchart TD
+  A[Log in to Admin Console] --> B[Dashboard Overview]
+  B --> C{Action Needed?}
+  C -- Approve Provider --> D[Review Aadhaar Upload Queue]
+  D --> E{Details Valid?}
+  E -- Yes --> F[Approve Status to Verified]
+  E -- No --> G[Reject & Request Re-upload]
+  C -- Set Surge Multiplier --> H[Open Pricing Settings]
+  H --> I[Update Surcharge Sliders]
+  C -- Resolve Dispute --> J[Open Escrow Journal]
+  J --> K[Initiate Refund or Manual Payout]
+```
+
+### 3.2 Admin Edge Cases
+*   **Edge Case: Fraudulent Document Uploads**: If a technician uploads a forged Aadhaar card, the admin suspends the account, logs the IP address, and blocks future registration attempts from that phone number.
