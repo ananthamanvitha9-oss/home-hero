@@ -321,6 +321,15 @@ exports.logout = async (req, res, next) => {
 
 exports.getProfile = async (req, res, next) => {
   try {
+    const isOffline = mongoose.connection.readyState !== 1;
+    if (isOffline) {
+      const user = mockDb.findUserById(req.user._id || req.user.id);
+      if (!user) {
+        return next(new AppError('User not found.', 404));
+      }
+      return res.json({ success: true, user });
+    }
+
     const user = await User.findById(req.user.id).select('-passwordHash');
     if (!user) {
       return next(new AppError('User not found.', 404));
@@ -333,7 +342,38 @@ exports.getProfile = async (req, res, next) => {
 
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { firstName, lastName, phone, savedAddresses } = req.body;
+    const { firstName, lastName, phone, savedAddresses, avatarUrl } = req.body;
+    const isOffline = mongoose.connection.readyState !== 1;
+    if (isOffline) {
+      const user = mockDb.findUserById(req.user._id || req.user.id);
+      if (!user) {
+        return next(new AppError('User not found.', 404));
+      }
+
+      if (firstName) user.firstName = firstName;
+      if (lastName) user.lastName = lastName;
+      if (phone) user.phone = phone;
+      if (savedAddresses) user.savedAddresses = savedAddresses;
+      if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
+
+      mockDb.saveUser(user);
+
+      return res.json({
+        success: true,
+        message: 'Profile updated successfully.',
+        user: {
+          _id: user._id,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          avatarUrl: user.avatarUrl,
+          savedAddresses: user.savedAddresses
+        }
+      });
+    }
+
     const user = await User.findById(req.user.id);
     if (!user) {
       return next(new AppError('User not found.', 404));
@@ -343,6 +383,7 @@ exports.updateProfile = async (req, res, next) => {
     if (lastName) user.lastName = lastName;
     if (phone) user.phone = phone;
     if (savedAddresses) user.savedAddresses = savedAddresses;
+    if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
 
     await user.save();
 
@@ -356,6 +397,7 @@ exports.updateProfile = async (req, res, next) => {
         role: user.role,
         firstName: user.firstName,
         lastName: user.lastName,
+        avatarUrl: user.avatarUrl,
         savedAddresses: user.savedAddresses
       }
     });

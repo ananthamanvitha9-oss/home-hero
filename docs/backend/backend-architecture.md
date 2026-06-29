@@ -1,7 +1,7 @@
 # HomeHero Hyperlocal Services Platform - Backend Architecture
 
 **Author:** Principal Node.js Architect, HomeHero Technologies Pvt. Ltd.  
-**Version:** 1.0.0  
+**Version:** 2.0.0  
 **Date:** June 26, 2026  
 **Status:** Approved for Production Deployments
 
@@ -99,80 +99,175 @@ homehero-backend/
 
 ---
 
-## 3. Core Connection Configuration Layers
+## 3. Configuration & Bootstrap Layer
 
-### 3.1 MongoDB Database Connection Layer (`config/db.js`)
-Configured to handle connection failures gracefully. If the database connection fails, the server starts in **Demo/Offline Mode**, allowing testing to proceed with mock databases rather than crashing the process.
+The application separates process bootstrapping (`server.js`) from route configuration (`app.js`) to simplify testing.
+
+### 3.1 Server Process Bootstrap (`server.js`)
+Handles environmental configurations, uncaught exception handling, database setups, and HTTP/WebSocket bindings.
+
+* **Key Implementation Details:**
+  * Imports `.env` configurations using `dotenv`.
+  * Installs listeners on `uncaughtException` and `unhandledRejection` to log errors via Winston and shut down cleanly.
+  * Connects to MongoDB via `connectDB()`.
+  * Creates an HTTP Server wrapper to attach Socket.io via `initSocket(server)`.
+  * Binds to `process.env.PORT || 5000`.
+
+### 3.2 Express Application Setup (`app.js`)
+Configures HTTP security headers, CORS policies, parser limits, API routing paths, and global error middleware.
+
+* **Routing Table Configuration:**
+  ```javascript
+  app.use('/api/auth', authRoutes);
+  app.use('/api/services', serviceRoutes);
+  app.use('/api/technicians', technicianRoutes);
+  app.use('/api/bookings', bookingRoutes);
+  app.use('/api/reviews', reviewRoutes);
+  app.use('/api/notifications', notificationRoutes);
+  app.use('/api/payments', paymentRoutes);
+  app.use('/api/admin', adminRoutes);
+  ```
+  *(Note: Backward compatibility is maintained by supporting legacy route endpoints prefix `/api/v1/*` mapping to the same router entries).*
+
+### 3.3 Database Connection Setup (`src/config/db.js`)
+Initializes connection sessions using Mongoose. If the database connection fails, it catches the exception, logs it, and starts the server in **Demo/Offline Mode**, allowing testing to proceed with mock databases rather than crashing the process.
 
 * **Key File:** [db.js](file:///c:/Users/manvi/OneDrive/Desktop/homehero/backend/src/config/db.js)
-* **Implementation Pattern:**
+
+### 3.4 WebSocket Configuration (`src/config/socket.js`)
+Initializes the Socket.io server, applies a custom JWT handshake middleware, manages room allocations, and tracks coordinate telemetry events.
+
+* **Handshake Verification:**
   ```javascript
-  const mongoose = require('mongoose');
-  const logger = require('./logger');
-
-  const connectDB = async () => {
+  const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(' ')[1];
+  if (token) {
     try {
-      const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/homehero');
-      logger.info(`[MongoDB] Connected successfully to host: ${conn.connection.host}`);
-    } catch (error) {
-      logger.error(`[MongoDB] Database connection failed: ${error.message}`);
-      logger.warn(`[MongoDB] WARNING: Server is starting in DEMO/OFFLINE mode. Database operations will be mocked or throw errors, but Express endpoints will remain active.`);
+      const decoded = jwt.verify(token, JWT_SECRET);
+      socket.user = decoded;
+    } catch (err) {
+      console.warn('[Socket Auth] Authentication failed:', err.message);
     }
-  };
-
-  module.exports = connectDB;
+  }
   ```
-
-### 3.2 Real-Time Event WebSocket Server (`config/socket.js`)
-Manages live connections, user rooms, and coordinates matching loops. Connects active technician and customer client connections to coordinate dispatch offers.
-
-* **Key Socket Rooms:**
-  * `room_user_<userId>`: Targeted messages, chat transcripts, and status updates.
-  * `room_booking_<bookingId>`: Room for active clients and technicians assigned to a job.
-* **Proximity Matching Loop:** Matches open service bookings to active, available technicians within a 15km service radius, emitting matching requests sequentially.
+* **Event Handlers:**
+  * `join_booking`: Binds socket clients (customers and technicians) to booking-specific rooms (`booking_<bookingId>`).
+  * `accept_job`: Allows online technicians to accept pending bookings. Updates database booking states, populates user fields, and broadcasts updates via `booking_matched` events.
+  * `technician_location_update`: Receives coordinates from technicians, updates location coordinates in the database, and broadcasts updates via `location_updated` events.
+  * `update_checklist`: Syncs job checklists. Completing the first item transitions the booking state to `active`, while completing all items transitions the booking state to `completed`.
+  * `send_message`: Saves messages to the database and broadcasts them to the booking room.
 
 ---
 
-## 4. Middleware & Traffic Protection Stack
+## 4. Models Layer
 
-Security, request scrubbing, and inputs verification are managed before routing requests to controller modules.
+Mongoose models enforce schema validation and define database indexes.
 
-### 4.1 Route Guarding & RBAC (`middleware/authMiddleware.js`)
-1. **`protect` Middleware:** Parses the `Authorization: Bearer <token>` header, verifies the JWT signature, and attaches the active `req.user` payload to the request object.
-2. **`authorize(...roles)` Middleware:** Restricts access based on the user's role:
-   ```javascript
-   exports.authorize = (...roles) => {
-     return (req, res, next) => {
-       if (!roles.includes(req.user.role)) {
-         return next(new AppError('You do not have permission to perform this action', 403));
-       }
-       next();
-     };
-   };
-   ```
+### 4.1 `User` Model (`src/models/userModel.js`)
+* **Role Enums:** `['customer', 'provider', 'technician', 'admin']` (default: `'customer'`).
+* **Pre-Save Hooks:** Automatically hashes passwords using `bcryptjs` with a salt factor of `10` before saving.
+* **Instance Methods:** `comparePassword(enteredPassword)` compares entered passwords against stored hashes using `bcrypt.compare`.
+* **Embedded Array:** `savedAddresses` stores multiple addresses (capped at 10 items) directly within the user document to reduce `$lookup` query costs.
 
-### 4.2 Security Headers & Rate Limiters (`middleware/securityMiddleware.js`)
-* **Helmet:** Adds secure HTTP headers to mitigate cross-site scripting (XSS) and injection attacks.
-* **Mongo Sanitize:** Prevents NoSQL query injection by stripping keys starting with `$` or `.`.
-* **Cors Validation:** Restricts request access to trusted origins.
-* **Express Rate Limit:** Restricts API abuse by limiting each IP to 100 requests per 15 minutes.
+### 4.2 `Technician` Model (`src/models/technicianModel.js`)
+* **Linkage:** Contains a 1:1 referenced `userId` pointing to `User`.
+* **Geospatial coordinates:** Stores location as a GeoJSON Point:
+  ```javascript
+  currentLocation: {
+    type: { type: String, enum: ['Point'], default: 'Point' },
+    coordinates: { type: [Number], default: [78.382021, 17.426210] } // [longitude, latitude]
+  }
+  ```
+* **Indexes:** Specifies a `"2dsphere"` spatial index on `currentLocation` to enable geospatial query operators like `$near` and `$geoWithin`.
+* **Verification object:** Manages KYC verification status (`unverified`, `pending`, `verified`), background checks, and Aadhaar validation flags.
 
-### 4.3 Central Validation Interceptors (`middleware/validationMiddleware.js`)
-Validates incoming payload structures using Joi schemas before processing the request in controllers, returning standardized validation error responses on failure.
+### 4.3 `Booking` Model (`src/models/bookingModel.js`)
+* **Workflow States:** `['pending', 'accepted', 'rejected', 'assigned', 'in_progress', 'completed', 'cancelled']`.
+* **State Audit Logs:** `statusHistory` embeds historical changes to track transitions, notes, and the user who modified the status.
+* **Embedded snapshots:** Snapshot of the target address coordinates (`address.geoPoint` with `2dsphere` indexing) and billing details are embedded directly to preserve booking data.
+
+### 4.4 `Payment` Model (`src/models/paymentModel.js`)
+* **Paise Pricing:** Currency amounts are stored in paise (e.g. ₹649.00 = `64900` paise) to prevent floating-point calculation errors.
+* **Integrations:** Tracks Razorpay Order ID (`razorpayOrderId`), Payment ID (`razorpayPaymentId`), and Signature verification parameters.
+* **Escrow States:** Tracks payment status (`created`, `successful`, `failed`, `refunded`) to manage payments during disputes or cancellations.
 
 ---
 
-## 5. Centralized Error Handling Architecture
+## 5. Controllers & Routing Layer
 
-Operational errors (expected failures, validation issues, payment failures) are distinguished from programming errors (unexpected syntax issues, memory leaks, connection drops) to maintain application stability.
+Controllers coordinate HTTP request extraction, call services, and compile JSON responses.
 
-### 5.1 Operational Error Definition (`core/errors/AppError.js`)
-* **Key File:** [AppError.js](file:///c:/Users/manvi/OneDrive/Desktop/homehero/backend/src/core/errors/AppError.js)
-* **Structure:** Extends the native `Error` class and flags the error as operational (`isOperational = true`), formatting status tags based on HTTP codes:
-  * `4xx` = `fail` (e.g. client validation error)
-  * `5xx` = `error` (e.g. internal server issue)
+### 5.1 Route Mapping Specification
+All routing files are bound to the Express app via specialized router modules under `src/routes/`:
+* `authRoutes.js`: Maps login, registration, OTP validation, profile, and refresh token endpoints.
+* `technicianRoutes.js`: Manages telemetry, coordinates, and professional profiles.
+* `serviceRoutes.js`: Returns category taxonomies and services lists.
+* `bookingRoutes.js`: Handles pricing calculations, booking creation, completions, and technician match configurations.
+* `paymentRoutes.js`: Handles payment pre-authorizations, Razorpay callbacks, and escrow payouts.
+* `reviewRoutes.js`: Submits user feedback ratings.
+* `notificationRoutes.js`: Returns system-wide push alerts.
+* `adminRoutes.js`: Provides analytics, KYC vetting controls, and surge pricing multiplier sliders.
 
-### 5.2 Express Global Interceptor (`middleware/errorMiddleware.js`)
+### 5.2 Controller Architecture Example (`authController.js`)
+Handles tokens issuance by signing short-lived Access Tokens (JWT payload signed with `JWT_SECRET` expiring in 15 minutes) and long-lived Refresh Tokens (signed with `JWT_REFRESH_SECRET` expiring in 7 days). Refresh tokens are returned to clients inside secure, HttpOnly, Lax SameSite cookie payloads to mitigate Cross-Site Scripting (XSS) risks.
+
+---
+
+## 6. Middleware Stack (Security & Traffic Safeguards)
+
+Requests are intercepted and validated before reaching controller business logic.
+
+```
+       Incoming Request
+              │
+              ▼
+    [ securityMiddleware ]  --> Cors check, Rate Limiter (100 req / 15m), Sanitizer
+              │
+              ▼
+      [ authMiddleware ]    --> JWT parsing & RBAC role permission checks
+              │
+              ▼
+    [ validationMiddleware ]--> Joi schema check (email formats, coordinate values)
+              │
+              ▼
+         Controller
+```
+
+1. **`securityMiddleware.js`:**
+   * **Helmet:** Adds secure HTTP headers.
+   * **CORS:** Restricts requests to allowed frontend origins.
+   * **Sanitization:** Removes keys starting with `$` or `.` from request bodies, queries, and parameters to prevent NoSQL injection.
+   * **Rate Limiter:** Limits each IP address to 100 requests per 15 minutes.
+2. **`authMiddleware.js`:**
+   * **`protect`:** Extracts Bearer tokens from the `Authorization` header, verifies the signature, and attaches the active `req.user` payload to the request object.
+   * **`authorize(...roles)`:** Restricts route access to specific roles.
+3. **`validationMiddleware.js`:**
+   * Compares incoming payloads against Joi schemas (e.g. validating email formats, Aadhaar digits, coordinate structures, ISO dates) before routing requests to controllers.
+
+---
+
+## 7. Business Logic Services Layer
+
+Services run core backend business logic, independent of Express routing layers:
+
+1. **WebSocket Dispatch Matcher (`config/socket.js`):**
+   * Emits booking matches to online technicians within a 15km service radius, implementing a 90-second acceptance ring. If the offer is rejected or expires, it rings the next nearest technician.
+2. **Razorpay Escrow holds (`controllers/paymentController.js`):**
+   * Creates pre-authorized holding orders using the Razorpay Node SDK. Confirms payment signatures using HMAC-SHA256 verification on webhook callbacks.
+3. **Escrow Releases:**
+   * Releases escrowed funds upon completion of the service checklist. Retains 15% platform commission and credits 85% to the technician's wallet balance.
+4. **Push Notification workers (`config/notificationHelper.js`):**
+   * Sends multi-channel alerts (Firebase Cloud Messaging push alerts, WebSocket emissions, SMS fallbacks) based on recipient preferences.
+
+---
+
+## 8. Centralized Error Handling & Logging Systems
+
+### 8.1 Error Interceptor Setup (`src/core/errors/AppError.js`)
+Extends the native `Error` class and flags the error as operational (`isOperational = true`), formatting status tags based on HTTP codes:
+* `4xx` = `fail` (e.g. client validation error)
+* `5xx` = `error` (e.g. internal server issue)
+
+### 8.2 Global Error Middleware (`src/middleware/errorMiddleware.js`)
 All route errors are routed to this central error handler middleware.
 
 * **Development vs. Production Modes:**
@@ -180,21 +275,16 @@ All route errors are routed to this central error handler middleware.
   * **Production:** Hides stack traces. If the error is operational (`isOperational = true`), it returns the error message. Otherwise, it logs a critical error trace to the server logs and returns a generic `'Something went very wrong!'` message to prevent leaking system information.
 * **Database Errors Handling:** Captures database errors (like `CastError` or `DuplicateKey` code `11000`) and translates them into operational errors.
 
----
-
-## 6. Centralized Logging Engine (`config/logger.js`)
-
+### 8.3 Winston Logging Engine (`src/config/logger.js`)
 Winston is used for application logging, dividing logs into development console output and daily rotating files in production.
 
-* **Key File:** [logger.js](file:///c:/Users/manvi/OneDrive/Desktop/homehero/backend/src/config/logger.js)
-* **Features:**
-  * **Winston Daily Rotate File:** Automates daily log rotation, keeping files for a maximum of 30 days to protect disk storage.
-  * **Unified Format Configuration:** Formats log entries with timestamps, error stacks, and system metadata tags:
-    ```javascript
-    const formatConfig = winston.format.combine(
-      winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-      winston.format.errors({ stack: true }),
-      winston.format.json()
-    );
-    ```
-  * **Colorized Console Streams:** Development logs are colorized and simplified for CLI debugging.
+* **Daily Log Rotation:** Automates daily log rotation, keeping files for a maximum of 30 days to protect disk storage.
+* **Unified Format Configuration:** Formats log entries with timestamps, error stacks, and system metadata tags:
+  ```javascript
+  const formatConfig = winston.format.combine(
+    winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+    winston.format.errors({ stack: true }),
+    winston.format.json()
+  );
+  ```
+* **Colorized Console Streams:** Development logs are colorized and simplified for CLI debugging.

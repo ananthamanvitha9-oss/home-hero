@@ -45,7 +45,10 @@ init();
 module.exports = {
   getUsers: () => mockUsers,
   findUserByEmail: (email) => mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase()),
-  findUserById: (id) => mockUsers.find(u => u._id.toString() === id.toString()),
+  findUserById: (id) => {
+    if (!id) return null;
+    return mockUsers.find(u => u._id && u._id.toString() === id.toString());
+  },
   findUserByPhone: (phone) => mockUsers.find(u => u.phone === phone),
   createUser: async (userData) => {
     const hash = await bcrypt.hash(userData.passwordHash, 10);

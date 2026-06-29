@@ -23,6 +23,14 @@ export function AuthProvider({ children }) {
     localStorage.setItem('token', userToken);
   };
 
+  const updateUserData = (userData) => {
+    setUser((prev) => {
+      const updated = { ...prev, ...userData };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const updatePortalMode = (mode) => {
     setPortalMode(mode);
     localStorage.setItem('portalMode', mode);
@@ -49,7 +57,8 @@ export function AuthProvider({ children }) {
       simpleView,
       setSimpleView: updateSimpleView,
       login,
-      logout
+      logout,
+      updateUserData
     }}>
       {children}
     </AuthContext.Provider>

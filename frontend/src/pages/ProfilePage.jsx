@@ -204,20 +204,82 @@ export function ProfilePage() {
         marginBottom: '28px',
         flexWrap: 'wrap'
       }}>
-        <div style={{
-          width: '80px',
-          height: '80px',
-          borderRadius: '50%',
-          background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '32px',
-          color: '#fff',
-          fontWeight: 800,
-          boxShadow: '0 8px 24px rgba(99,102,241,0.3)'
-        }}>
-          {user.firstName ? user.firstName.charAt(0).toUpperCase() : 'C'}
+        <div style={{ position: 'relative' }}>
+          <div style={{
+            width: '80px',
+            height: '80px',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '32px',
+            color: '#fff',
+            fontWeight: 800,
+            boxShadow: '0 8px 24px rgba(99,102,241,0.3)',
+            overflow: 'hidden'
+          }}>
+            {user.avatarUrl ? (
+              <img 
+                src={user.avatarUrl.startsWith('http') ? user.avatarUrl : `http://localhost:5000${user.avatarUrl}`} 
+                alt="Avatar" 
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+              />
+            ) : (
+              user.firstName ? user.firstName.charAt(0).toUpperCase() : 'C'
+            )}
+          </div>
+          <label style={{
+            position: 'absolute',
+            bottom: '-4px',
+            right: '-4px',
+            background: '#6366F1',
+            borderRadius: '50%',
+            width: '28px',
+            height: '28px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            border: '2px solid #0F172A',
+            fontSize: '12px',
+            color: '#fff',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            transition: 'all 0.2s'
+          }} title="Upload photo">
+            📷
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={async (e) => {
+                if (e.target.files && e.target.files[0]) {
+                  const file = e.target.files[0];
+                  try {
+                    setLoading(true);
+                    setSuccess('');
+                    setError('');
+                    const res = await api.uploadFile(file);
+                    if (res.success && res.file) {
+                      const updateRes = await api.updateUserProfile({
+                        avatarUrl: res.file.path
+                      });
+                      if (updateRes.success && updateRes.user) {
+                        setUser(updateRes.user);
+                        if (updateUserData) updateUserData(updateRes.user);
+                        setSuccess('Profile picture updated successfully!');
+                        setTimeout(() => setSuccess(''), 4000);
+                      }
+                    }
+                  } catch (err) {
+                    setError(err.response?.data?.message || 'Failed to upload profile picture.');
+                  } finally {
+                    setLoading(false);
+                  }
+                }
+              }} 
+              style={{ display: 'none' }} 
+            />
+          </label>
         </div>
         <div style={{ flex: 1, minWidth: '200px' }}>
           <h2 style={{ color: '#fff', fontSize: '24px', fontWeight: 900, margin: '0 0 6px' }}>

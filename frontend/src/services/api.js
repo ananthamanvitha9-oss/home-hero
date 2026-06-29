@@ -280,6 +280,17 @@ export const api = {
     return res.data;
   },
 
+  uploadFile: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await axiosInstance.post('/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return res.data;
+  },
+
   getAvailableBookings: async () => {
     const res = await axiosInstance.get('/bookings?available=true');
     return res.data;

@@ -1,6 +1,7 @@
 const express = require('express');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const path = require('path');
 const { applySecurity } = require('./src/middleware/securityMiddleware');
 
 // Route imports
@@ -12,6 +13,7 @@ const reviewRoutes = require('./src/routes/reviewRoutes');
 const notificationRoutes = require('./src/routes/notificationRoutes');
 const paymentRoutes = require('./src/routes/paymentRoutes');
 const adminRoutes = require('./src/routes/adminRoutes');
+const uploadRoutes = require('./src/routes/uploadRoutes');
 
 const app = express();
 
@@ -21,6 +23,9 @@ applySecurity(app); // Apply CORS, Rate Limiters, and Sanitization
 app.use(morgan('dev')); // Dev logging
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+
+// Serve static uploads
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Basic sanity route
 app.get('/', (req, res) => {
@@ -40,6 +45,7 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Legacy route mapping for backward compatibility
 app.use('/api/v1/auth', authRoutes);
