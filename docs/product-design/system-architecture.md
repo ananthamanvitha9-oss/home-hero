@@ -572,3 +572,89 @@ graph TD
 1. **Dynamic Demand-Supply Pricing**: Machine learning models analyze historical request patterns alongside weather and traffic data. This allows the system to predict demand surges and adjust pricing multipliers in real-time to balance supply and demand.
 2. **Predictive Dispatch Matching**: An AI routing model scores available technicians based on their job acceptance history, average travel speed, and customer ratings. This helps predict the technician most likely to accept and complete a job efficiently.
 3. **Computer Vision Task Audit**: When a technician completes a service, they submit a photo of the completed work. A computer vision model verifies the quality of the repair (e.g. assessing a leak or checking wiring) before automatically releasing payment.
+
+---
+
+## 16. API Communication Protocols
+
+HomeHero exposes REST endpoints for transactional state changes and WebSocket connections for real-time tracking and chat.
+
+### 16.1 Communication Sequence
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Client
+  participant Gateway as Express Gateway
+  participant REST as REST Controllers
+  participant WS as Socket.io Server
+  participant Cache as Redis Cache
+
+  Client->>Gateway: HTTPS GET /api/services
+  Gateway->>Cache: Query cached services list
+  Cache-->>Gateway: Return cached data (Cache Hit)
+  Gateway-->>Client: 200 OK Response
+
+  Client->>Gateway: WebSocket Connection Handshake
+  Gateway->>WS: Establish Session
+  WS-->>Client: Connection established (Event: 'connected')
+  Client->>WS: Emit 'join_booking' { bookingId }
+  WS->>WS: Join socket client to room 'booking_id'
+```
+
+---
+
+## 17. Caching Strategy (Redis)
+
+To minimize database read pressure on MongoDB Atlas, HomeHero implements a **Read-Through Caching Pattern** for service lists and active pricing settings, and stores live technician coordinates in memory.
+
+```mermaid
+graph TD
+  A[API Query Request] --> B{Cache Hit in Redis?}
+  B -- Yes --> C[Return cached JSON data]
+  B -- No --> D[Query MongoDB Atlas]
+  D --> E[Write results to Redis Cache]
+  E --> F[Return document to client]
+```
+
+---
+
+## 18. Logging & Monitoring Pipeline
+
+The platform uses Winston to log events and Sentry to track production errors in real-time.
+
+```mermaid
+graph LR
+  subgraph Client_App ["Client App"]
+    SentrySDK["Sentry Client SDK"]
+  end
+
+  subgraph Server_API ["API Server"]
+    Winston["Winston Core Logger"]
+    Morgan["Morgan Request stream"]
+    SentryServer["Sentry Node SDK"]
+  end
+
+  subgraph Log_Collectors ["Telemetry Collectors"]
+    SentryCloud["Sentry Error Dashboard"]
+    AuditLogs[("Rotated security.log / error.log")]
+  end
+
+  SentrySDK -->|Exceptions| SentryCloud
+  Morgan -->|Stream request info| Winston
+  Winston -->|Write file| AuditLogs
+  SentryServer -->|Production Uncaught Exception| SentryCloud
+```
+
+---
+
+## 19. Data Durability & Backup Strategy
+
+MongoDB Atlas handles automatic data replication and point-in-time recovery.
+
+*   **Replica Sets**: Enforces a minimum 3-node replica set configuration (1 Primary, 2 Secondary read nodes) to ensure automatic failover and zero data loss.
+*   **Backup Schedule**:
+    - *Daily Snapshots*: Retained for 7 days.
+    - *Weekly Snapshots*: Retained for 30 days.
+    - *Monthly Snapshots*: Retained for 365 days.
+*   **Point-in-Time Recovery (PITR)**: Enabled in Atlas to allow restore operations back to any exact second within a 7-day window in the event of an database failure or corruption.
+
